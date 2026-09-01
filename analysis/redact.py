@@ -1,9 +1,9 @@
-"""Anonymization gate — pseudonymize real client identifiers before any prompt (DESIGN §14.5, §9).
+"""Anonymization gate — pseudonymize real client identifiers before a result reaches an agent (§9).
 
-Even though the model is local, client data is pseudonymized BEFORE it enters a prompt, exactly
-as for a shareable report (§9): (1) the analyst may copy the answer into a deliverable; (2) the
-model must never learn to echo real identifiers. This is defense in depth on top of the offline
-boundary, not a substitute for it.
+The analysis MCP hands findings to an agent that may be a CLOUD model. §9 is non-negotiable:
+hostnames, usernames, internal IPs, domains and emails are real client identifiers and must not
+enter a cloud model's context. This gate pseudonymizes them BEFORE the MCP responds, exactly as for
+a shareable report.
 
 Map-based and deterministic: the authority on "what is a real client identifier and its stable
 pseudonym" is `data/pseudonym-map.md` (private, gitignored) — the same SOT `tools/check-leaks.sh`
@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 MAP_PATH = REPO_ROOT / "data" / "pseudonym-map.md"
 
 # Placeholder/header/separator cells to ignore — mirrors tools/check-leaks.sh so both read the
@@ -69,9 +69,7 @@ class Redactor:
         return text
 
     def apply_obj(self, obj):
-        """Recursively pseudonymize every string in a JSON-like structure (used on the loaded
-        analysis: the packed context AND the records that back query_analysis, so the whole
-        downstream — digest, store, query results — lives in pseudonym space consistently)."""
+        """Recursively pseudonymize every string in a JSON-like structure."""
         if isinstance(obj, str):
             return self.apply(obj)
         if isinstance(obj, list):

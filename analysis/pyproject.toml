@@ -12,6 +12,7 @@ requires-python = ">=3.10"
 # common-schema records. Everything else the suite drives is an external binary, not a Python dep.
 dependencies = [
     "duckdb>=1.0.0",
+    "mcp>=1.0.0,<2",       # the analysis MCP server (analysis_mcp_server.py) — the agent interface
 ]
 
 [project.optional-dependencies]
@@ -30,7 +31,7 @@ dev = [
 package = false
 
 [tool.coverage.run]
-source = ["adapters", "ai", "analytics", "engine"]
+source = ["adapters", "analytics", "engine", "redact"]
 # The CLI smoke test runs each entry point as a real subprocess — that is the point, it proves the
 # process starts. Without `parallel`, none of that execution is measured and `engine/run_*.py` reads
 # as 0% covered while being exercised: a coverage number that lies is worse than none. pytest-cov's

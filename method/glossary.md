@@ -14,7 +14,7 @@ changelog:
 
 # Glossary
 
-Broad terminological reference on cybersecurity, IT, OT, systems, networking and malware. Grows over time; should be reconciled with the **NIST CSRC glossary** once indexed in the RAG (see `rag/sources.yaml`). Vendor-specific terminology is deliberately out of scope.
+Broad terminological reference on cybersecurity, IT, OT, systems, networking and malware. Grows over time; should be reconciled with the **NIST CSRC glossary**. Vendor-specific terminology is deliberately out of scope.
 
 ## Fundamentals
 

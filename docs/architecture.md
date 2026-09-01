@@ -102,15 +102,15 @@ flowchart TB
    metrics, search, pivots, base64), **long-tail analytics**, and **correlation** — temporal episodes
    and indicators shared *across* sources (`analysis/analytics/correlate.py`,
    `docs/analysis/correlation.md`). This is the layer no single wrapped binary provides.
-5. **Ground & quantify.** The **RAG** (`rag/`, Qdrant + the `rag-api` HTTP service) explains findings
-   against ATT&CK and the regulatory texts; the **deterministic tools** (`tools/`) add golden-tested
-   scoring and compliance obligations — never computed by hand (§6). Vendor product documentation
-   deliberately left the RAG on 2026-08-27: a vendor's own MCP server answers those questions against
+5. **Ground & quantify.** The **knowledge base** (`method/`, plus the vendored `attack_map.json`)
+   explains findings against ATT&CK and the regulatory texts; the **deterministic tools** (`tools/`)
+   add golden-tested scoring and compliance obligations — never computed by hand (§6). Vendor
+   product documentation is deliberately absent: a vendor's own MCP server answers those questions against
    the live product instead of against a snapshot of its manual.
 6. **Report & consume.** Results become self-contained **reports** (HTML/JSON/Markdown), portable
    **bundles** (`engine/bundle.py`, evidence deliberately excluded, §9) and persistent **cases** that
    correlate across uploads. They are consumed through the **GUI** or the **CLI** — either one does
-   the whole job — and can be handed to the **on-box AI** (`analysis/ai/`), which reasons over an
+   the whole job — and can be handed to an external agent through the **analysis MCP server** (`analysis/analysis_mcp_server.py`), which reasons over an
    already-computed analysis through a read-only tool registry: RAG retrieval, the Event ID map, the
    scoring oracle, egress-gated enrichment, and SQL over the analysis it was given. It cannot ingest
    an artifact, produce a report or manage a case, and it is deliberately **optional**: the product
@@ -123,7 +123,7 @@ path is **enrichment** (`tools/enrichment/`): opt-in lookups of **public indicat
 VirusTotal, ThreatFox), egress-gated and never sent private IPs/internal domains (§9/§15). The RAG is
 local (no scraping at query time). The **on-box AI** is a local LLM — the conversational layer ships
 *inside* the product, so it needs no cloud. It also has to fit the machine: since 2026-08-28 a load
-that would not fit is refused rather than attempted (`tools/hostmem.py`), on the RAG's embedding
+that would not fit is refused rather than attempted, on the embedding
 models as well as on the LLM.
 
 **External AI assistants** (Claude Code, Mistral Vibe) sit **outside** this boundary: they
@@ -141,13 +141,12 @@ are development tools used to build EventHound, not part of the running product.
 | Reports | `analysis/engine/report_*.py` | HTML/JSON/Markdown |
 | GUI | `analysis/gui/` | FastAPI on `127.0.0.1:8700` |
 | CLI | `analysis/engine/run_*.py` | every capability, headless |
-| RAG | `rag/` | Qdrant + `rag_api.py` (HTTP), hybrid retrieval |
+| Analysis MCP | `analysis/analysis_mcp_server.py` | the agent interface (analyze / analyze_case / eid_lookup) |
 | Scoring / compliance | `tools/scoring/`, `tools/compliance/` | deterministic oracle |
 | Enrichment | `tools/enrichment/` | the only egress, public indicators only |
-| On-box AI | `analysis/ai/` | assistant over a computed analysis; read-only tools, §9 redaction gate |
+| Analysis MCP | `analysis/analysis_mcp_server.py` | the agent interface; read-only tools, §9 redaction gate |
 | Cases and bundles | `analysis/analytics/case_store.py`, `analysis/engine/bundle.py` | correlation across uploads; portable analysis without evidence |
 | Attack map | `analysis/engine/attack_map.py` | entity graph drawn in kill-chain lanes, evidence behind every edge |
-| Host memory guard | `tools/hostmem.py` | refuses a model load the machine cannot absorb |
 
 Packaging: a single `eventhound` Docker image bakes the engine, GUI and every wrapped tool; the root
 `docker-compose.yml` runs `qdrant`, `rag-api`, `ollama` and `eventhound` together (see the root

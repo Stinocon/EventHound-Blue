@@ -10,7 +10,7 @@ description = "Arricchimento indicatori da threat intel esterna (Shodan/VirusTot
 requires-python = ">=3.10"
 # Solo stdlib (urllib/ipaddress) + mcp per il server. Nessuna SDK vendor.
 dependencies = [
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2",
 ]
 
 # OPZIONALE (come yara in analisi): public-suffix list per la difesa #24 — riconosce i FQDN il cui

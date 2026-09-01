@@ -53,7 +53,6 @@ SERVICES: dict[str, dict] = {
 # Non-secret preferences the product remembers between runs. Value = default.
 SETTINGS_DEFAULTS: dict[str, object] = {
     "allow_egress": False,          # §7: outbound lookups stay opt-in, even when a key is stored
-    "llm_model": "",                # empty = whatever EVENTHOUND_LLM_MODEL / the engine default says
 }
 
 

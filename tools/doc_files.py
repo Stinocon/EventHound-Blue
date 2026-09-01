@@ -20,7 +20,7 @@ from pathlib import Path
 # Directories a tracked .md never lives in. Not a .gitignore parser: the fallback only has to avoid
 # scanning thousands of vendored markdown files, and being wrong here costs noise, never silence.
 _SKIP = {".git", ".venv", "node_modules", "__pycache__", ".tools", ".run", "data",
-         "qdrant_storage", "fastembed_cache", "sources_raw", "community", "cases", "reports"}
+         "community", "cases", "reports"}
 
 
 def markdown_files(root: Path) -> tuple[list[Path], bool]:

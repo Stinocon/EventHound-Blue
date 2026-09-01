@@ -28,7 +28,7 @@ import doc_files  # noqa: E402 — sibling module, same directory
 
 # Top-level directories of this repository. A code span is only treated as a path when it starts
 # with one of these — `analytics.runner` and `--fmt access` must not be mistaken for files.
-_REPO_DIRS = ("analysis/", "docs/", "method/", "rag/", "tools/", "data/", ".claude/", ".github/")
+_REPO_DIRS = ("analysis/", "docs/", "method/", "tools/", "data/", ".github/")
 
 # Paths that legitimately do not exist in a fresh clone: gitignored working directories, and the
 # private data area. Named rather than pattern-matched, so adding one is a decision.

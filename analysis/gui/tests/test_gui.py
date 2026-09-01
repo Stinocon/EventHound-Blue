@@ -121,8 +121,7 @@ def _run(client) -> int:
     import os as _os
     import tempfile as _tf
     _cfg_path = Path(_tf.mkdtemp(prefix="eh-cfg-")) / "config.json"
-    _prev_env = {k: _os.environ.get(k) for k in ("EVENTHOUND_CONFIG", "VT_API_KEY",
-                                                 "EVENTHOUND_LLM_MODEL")}
+    _prev_env = {k: _os.environ.get(k) for k in ("EVENTHOUND_CONFIG", "VT_API_KEY")}
     _os.environ["EVENTHOUND_CONFIG"] = str(_cfg_path)
     _os.environ.pop("VT_API_KEY", None)
     try:
@@ -151,52 +150,9 @@ def _run(client) -> int:
         client.post("/api/config", json={"service": "virustotal", "key": ""})
         assert _cfgmod.get_api_key("virustotal") is None, "clearing the key did not work"
         print("PASS  gui: /api/config — GUI↔CLI shared store, masked output, env override, 0600")
-
-        # The Assistant's model picker is the PERSISTENT setting, not a per-request override: the
-        # choice has to reach the same store the CLI reads. `llm_model` was offered and read by
-        # nothing, then "connected" through the wrong key and read by nothing again — so what this
-        # asserts is the round trip, GUI in, engine out, not that a value was written somewhere.
-        from ai import ollama_client as _oc
-        _os.environ.pop("EVENTHOUND_LLM_MODEL", None)
-        r = client.post("/api/ai/model", json={"model": _oc.LARGE_MODEL})
-        assert r.status_code == 200, r.text[:200]
-        body = r.json()
-        assert body["model"] == _oc.LARGE_MODEL, body
-        # The verdict travels with the choice — a large model on a small host is a refusal, and the
-        # moment to say so is at the choice, not three seconds into a streamed answer. Which of the
-        # four it is depends on the machine running the suite, so the contract is what is pinned.
-        assert body.get("state") in ("ok", "unknown", "refuse", "missing"), body
-        assert body.get("message"), "a verdict with no explanation is not a verdict"
-        assert _cfgmod.get_setting("llm_model") == _oc.LARGE_MODEL, "the choice was not stored"
-        assert _oc.configured_model() == _oc.LARGE_MODEL, "the engine does not see the GUI choice"
-        listed = client.get("/api/ai/models").json()
-        assert listed["selected"] == _oc.LARGE_MODEL, listed
-        assert _oc.LARGE_MODEL in listed["models"], (
-            "the selected model must be listed even when it is not pulled — a picker that drops "
-            f"the analyst's own choice is how a setting looks broken: {listed}")
-        # A model name is validated BEFORE it is stored. The value is handed to Ollama, echoed
-        # into the picker and interpolated into $MODEL by setup.sh/uninstall.sh, so a field that
-        # accepts a quote, a newline or 10 KB of text is one the rest of the product defends
-        # against forever.
-        for _bad in ('x" onfocus="alert(1)', "<img src=x onerror=alert(1)>", "a\nb",
-                     "$(id); rm -rf /tmp/zz", "../../etc/passwd", "x" * 200):
-            _r = client.post("/api/ai/model", json={"model": _bad})
-            assert _r.status_code == 400, f"stored a name it should have refused: {_bad!r}"
-        assert client.post("/api/ai/model", json={"model": 12345}).status_code == 400
-        assert _cfgmod.get_setting("llm_model") == _oc.LARGE_MODEL, \
-            "a refused name must not disturb the stored one"
-        # ...and clearing it returns the engine to the default rather than to an empty model name.
-        # A blank field is a CLEAR, not a malformed name: whitespace-only means the same thing.
-        assert client.post("/api/ai/model", json={"model": "  "}).status_code == 200
-        assert _cfgmod.get_setting("llm_model") == "", "whitespace did not clear the choice"
-        assert client.post("/api/ai/model", json={"model": ""}).status_code == 200
-        assert _oc.configured_model() == _oc.DEFAULT_MODEL, "clearing the choice did not fall back"
-        print("PASS  gui: /api/ai/model — the picker persists to the store the CLI reads")
     finally:
-        # RESTORE, not pop. This block clears EVENTHOUND_LLM_MODEL to test the fallback, and
-        # popping it unconditionally stripped the operator's own pin from every later test in the
-        # process — including the /api/ai/chat smoke turn below, which then ran on a different
-        # model than the one the environment asked for.
+        # RESTORE, not pop: the config test swaps the settings store, and a later test in this
+        # process must not inherit the temporary one.
         for _k, _v in _prev_env.items():
             _os.environ.pop(_k, None) if _v is None else _os.environ.__setitem__(_k, _v)
         shutil.rmtree(_cfg_path.parent, ignore_errors=True)
@@ -322,21 +278,6 @@ def _run(client) -> int:
             f"expected the documented over-count (3x{n1}), got {d6['summary']['events']}")
         print("PASS  gui: incremental sends add up; an overlapping batch double-counts "
               "(guarded in the browser by pendingFiles)")
-
-        # /api/services — asked, never asserted. Settings used to print three fixed sentences
-        # about the RAG whatever the machine was doing, and had no row at all for the two most
-        # fragile pieces (Qdrant, Ollama). The contract that matters here is that every service
-        # reports a state from the closed set and a detail an analyst can act on: a probe that
-        # cannot tell must say `unknown`, never a green it did not establish.
-        r = client.get("/api/services")
-        assert r.status_code == 200, r.text[:200]
-        svc = r.json()
-        assert set(svc) == {"qdrant", "rag_api", "ollama"}, sorted(svc)
-        for name, entry in svc.items():
-            assert entry["state"] in ("up", "down", "unknown"), (name, entry)
-            assert entry["detail"], f"{name} reported a state with no reason"
-            assert entry["required"] is False, name
-        print("PASS  gui: /api/services probes Qdrant, rag-api and Ollama with a reason each")
 
         r = client.get("/api/cases/test-case-2")
         assert r.status_code == 200, r.text[:200]
@@ -553,48 +494,7 @@ def _run(client) -> int:
     else:
         print("SKIP  gui: /api/registry (dotnet or RECmd.dll absent)")
 
-    # on-box AI endpoints (DESIGN §14): input guards + model list + one real SSE turn.
-    assert client.post("/api/ai/chat", json={"question": ""}).status_code == 400
-    assert client.post("/api/ai/explain", json={}).status_code == 400
-    models = client.get("/api/ai/models").json()
-    assert "models" in models and "selected" in models, models  # picker source (may be empty if Ollama down)
-
-    def _sse_events(text: str) -> dict:
-        out, ev, parts = {}, None, []
-        for line in text.splitlines():
-            if line.startswith("event:"):
-                ev = line[6:].strip()
-            elif line.startswith("data:"):
-                parts.append(line[5:].lstrip())
-            elif line == "":
-                if ev:
-                    out[ev] = "".join(parts)
-                ev, parts = None, []
-        if ev:
-            out[ev] = "".join(parts)
-        return out
-
-    # Smoke on a FAST model if pulled (keep the gate quick, independent of the 14b default).
-    from ai.ollama_client import OllamaClient  # noqa: E402
-    ai_model = next((m for m in ("qwen2.5:7b-instruct", "qwen2.5:7b", "llama3.1:8b")
-                     if OllamaClient(model=m).available()), None)
-    ai_payload = {"question": "In one short sentence, what is T1003.001?"}
-    if ai_model:
-        ai_payload["model"] = ai_model
-    ai = client.post("/api/ai/chat", json=ai_payload)
-    assert ai.status_code == 200, ai.status_code
-    evs = _sse_events(ai.text)
-    if "complete" in evs:
-        # If Ollama/model is up: a grounded answer streamed, preceded by a start event.
-        payload = json.loads(evs["complete"])
-        assert isinstance(payload.get("answer"), str) and payload["answer"], payload
-        assert "start" in evs and "model" in json.loads(evs["start"]), evs.get("start")
-        print("PASS  gui: /api/ai/chat streamed a grounded answer")
-    else:
-        # No model pulled: the stream must carry an explicit unavailable error, not crash.
-        err = json.loads(evs.get("error", "{}"))
-        assert err.get("unavailable"), f"expected complete or unavailable error, got: {list(evs)}"
-        print("SKIP  gui: /api/ai/chat (Ollama/model not available)")
+    # on-box AI endpoints removed with the engine — no /api/ai, /api/rag or /api/services remain.
 
     if not shutil.which("tshark"):
         print("PASS  gui: /api/health ok; /api/analyze (PCAP) skipped (tshark absent)")

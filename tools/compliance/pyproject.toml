@@ -10,7 +10,7 @@ description = "Resolver di compliance: incidente → obblighi di notifica (GDPR/
 requires-python = ">=3.10"
 dependencies = [
     "PyYAML>=6.0",
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2",
 ]
 
 [tool.uv]

@@ -15,15 +15,17 @@ Everything since the last tag. The first tag has not been cut yet — see
 [README, "How mature is it, concretely"](README.md#how-mature-is-it-concretely) for what the project
 does and does not claim about itself today.
 
+- **The RAG and the on-box LLM are gone.** The vector knowledge base (Qdrant + fastembed + rerank)
+  and the local Ollama conversational engine were the two heaviest, least-validated subsystems. The
+  knowledge base is now plain markdown under `method/`; the reasoning lives in an external agentic
+  harness, reached through a new **analysis MCP server** (`analysis/analysis_mcp_server.py`:
+  `analyze`, `analyze_case`, `eid_lookup`) that returns pseudonymized findings (§9).
 - **The GUI stopped double-counting evidence.** Every Analyze click re-sent the whole accumulated
   session, and the case store's duplicate check hashes the whole batch: an overlapping batch was
   accepted and the earlier files were persisted twice, inflating every additive number.
 - **A missing tool stopped reading as an empty result.** Adapter failures now carry the tool's own
   message (scrubbed of absolute paths — these strings reach reports and bundles), and a missing Zeek
   is stated instead of passed over.
-- **The interface stopped asserting things it had not checked.** Per-view notices for missing tools,
-  a real probe of Qdrant / rag-api / Ollama in Settings, the Assistant reporting unavailability on
-  arrival, and the outbound-lookup switch actually reaching the assistant.
 - **`--json-out PATH`** is the canonical way to write JSON from the CLIs that take a path
   (`--json PATH` still works and says it is deprecated), and **`run_case new|add` takes all eleven
   sources**, so MFT, osquery, CrowdStrike and YARA evidence can enter a persistent case.

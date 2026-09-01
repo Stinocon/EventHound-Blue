@@ -470,12 +470,6 @@
       <div class="nav-item" data-view="decode" onclick="showView('decode')">
         <span class="ni" data-ic="decode"></span><span class="nlabel">Decode</span>
       </div>
-      <div class="nav-item" data-view="rag" onclick="showView('rag')">
-        <span class="ni" data-ic="rag"></span><span class="nlabel">RAG</span>
-      </div>
-      <div class="nav-item" data-view="assistant" onclick="showView('assistant')">
-        <span class="ni" data-ic="assistant"></span><span class="nlabel">AI Assistant</span>
-      </div>
 
       <div class="nav-section">System</div>
       <div class="nav-item" data-view="settings" onclick="showView('settings')">
@@ -785,70 +779,6 @@
       <div id="decode-output" class="decode-output"></div>
     </div>
 
-    <!-- ── RAG VIEW ── -->
-    <div class="view" id="view-assistant">
-      <div class="view-header">
-        <h2><span class="h2ic" data-ic="assistant"></span> AI Assistant</h2>
-        <span class="vh-sub">On-box AI</span>
-      </div>
-      <div class="view-desc">Local conversational engine: it grounds answers in the RAG, reasons over your analysis, and proposes next steps. Runs on-box &mdash; nothing leaves the machine (§14). It proposes commands, never runs them.</div>
-      <div id="ai-notice" class="ai-notice" style="display:none"></div>
-      <div class="ai-panel">
-        <div id="ai-messages" class="ai-messages"></div>
-        <div class="ai-composer">
-          <div class="ai-composer-tools">
-            <label class="ai-ctx" title="Send the current analysis result as context so the assistant can reason over it">
-              <input type="checkbox" id="ai-use-context"> use current analysis
-            </label>
-            <label class="ai-ctx" title="Local Ollama model — the choice is saved and used by the CLI too">
-              model <select id="ai-model" class="ai-model-select"></select>
-            </label>
-            <span id="ai-model-note" class="ai-model-note"></span>
-          </div>
-          <div class="ai-composer-input">
-            <textarea id="ai-input" rows="2" placeholder="Ask about a technique, a finding, a next step… (Enter to send, Shift+Enter for newline)"></textarea>
-            <button id="ai-send" class="ai-send-btn" onclick="sendAiMessage()">Send</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="view" id="view-rag">
-      <div class="view-header">
-        <h2><span class="h2ic" data-ic="rag"></span> RAG Knowledge Base</h2>
-        <span class="vh-sub">Hybrid retrieval</span>
-      </div>
-      <div class="view-desc">Search the cybersecurity knowledge base across frameworks, regulations and ACN guidance.</div>
-      <div class="rag-search">
-        <div class="rsi" style="flex:1">
-          <label>Query</label>
-          <input type="text" id="rag-query" placeholder="e.g. kerberoasting detection, T1003.001, NIS2 incident notification deadline">
-        </div>
-        <div class="rsi">
-          <label>Collection</label>
-          <select id="rag-collection">
-            <option value="knowledge_cyber">knowledge_cyber</option>
-            <option value="normative">normative</option>
-            <option value="acn">acn</option>
-          </select>
-        </div>
-        <div class="rsi">
-          <label>Level</label>
-          <select id="rag-level">
-            <option value="">Any</option>
-            <option value="1">1 (official)</option>
-            <option value="2">2 (aggregators)</option>
-            <option value="3">3 (notes)</option>
-          </select>
-        </div>
-        <div class="rsi" style="padding-bottom:2px">
-          <label>&nbsp;</label>
-          <button id="rag-search-btn" style="padding:10px 24px;">Search</button>
-        </div>
-      </div>
-      <div id="rag-results"></div>
-    </div>
-
     <!-- ── REPORT VIEW ── -->
     <div class="view" id="view-report">
       <div class="view-header">
@@ -993,7 +923,6 @@ function showView(name) {
   if (name === 'report') renderReportView();
   if (name === 'settings') renderSettings();
   if (name === 'help') renderHelp();
-  if (name === 'assistant') initAssistant();
   if (name === 'thor') renderThorFindings();
   if (name === 'timeline') renderTimeline();
   if (name === 'map') renderMap();
@@ -3010,59 +2939,6 @@ document.getElementById('hb-base64-btn').addEventListener('click', async () => {
   hbAutoTable(rows);
 });
 
-// ─── RAG Search (independent tool) ───
-document.getElementById('rag-search-btn').addEventListener('click', async ()=>{
-  const query = document.getElementById('rag-query').value.trim();
-  const collection = document.getElementById('rag-collection').value;
-  const levelVal = document.getElementById('rag-level').value;
-  const resultsEl = document.getElementById('rag-results');
-  if (!query) { resultsEl.replaceChildren(uiEmptyEl('Enter a query')); return; }
-  resultsEl.innerHTML = uiLoadingHtml('Searching…');
-  try {
-    const res = await fetch('/api/rag/search', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({query, collection, k: 10, level: levelVal ? parseInt(levelVal) : null})
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      resultsEl.innerHTML = uiErrorHtml('Error: ' + (data.error || res.status));
-      return;
-    }
-    resultsEl.innerHTML = '';
-    const results = data.results || [];
-    if (!results.length) {
-      resultsEl.replaceChildren(uiEmptyEl('No results found. Is Qdrant running? (cd rag && docker compose up -d qdrant)'));
-      return;
-    }
-    results.forEach(r => {
-      const card = el('div', {class:'rag-card'});
-      const titleRow = el('div', {class:'rct'});
-      titleRow.append(el('span',{}, r.title || r.source_name || 'untitled'));
-      card.append(titleRow);
-      const srcRow = el('div', {class:'rcs'});
-      srcRow.append(el('span',{}, r.source_name || ''));
-      if (r.level) srcRow.append(el('span',{class:'lvl'}, 'L' + r.level));
-      const scoreStr = r.score !== null && r.score !== undefined ? `score: ${r.score}` : '';
-      if (scoreStr) srcRow.append(el('span',{}, scoreStr));
-      card.append(srcRow);
-      if (r.text) {
-        const txt = el('div', {class:'rctxt'}, r.text);
-        card.append(txt);
-      }
-      if (r.url) {
-        const urlEl = el('div', {class:'rcurl'}, r.url);
-        card.append(urlEl);
-      } else if (r.locator) {
-        card.append(el('div', {class:'rcurl'}, r.locator));
-      }
-      resultsEl.append(card);
-    });
-  } catch (e) {
-    resultsEl.innerHTML = uiErrorHtml('Network error: ' + e);
-  }
-});
-
 // ─── Report View ───
 function renderReportView() {
   const info = document.getElementById('rpt-info');
@@ -3480,17 +3356,6 @@ function renderSettings() {
   toolsCard.append(toolList);
   el_.append(toolsCard);
 
-  // Optional services — asked, not asserted. This card used to print three fixed sentences
-  // ("Collections: knowledge_cyber, normative, acn", "Run: ./setup-macos.sh up qdrant") whatever
-  // the machine was actually doing, while the view header promised "RAG connectivity"; and the two
-  // components most likely to be down, Qdrant and Ollama, were the two with no row anywhere.
-  const svcCard = el('div',{class:'sett-card', id:'sett-services'});
-  svcCard.append(el('h3',{},'Optional services'));
-  svcCard.append(el('p',{class:'sett-text'},'None of these is required to analyse evidence: the engine, the CLI and every source view work without them. They are what the RAG panel and the Assistant need.'));
-  svcCard.append(el('div',{id:'services-body'}));
-  el_.append(svcCard);
-  renderServices();
-
   // Third-party API keys — stored once, used by the GUI, the CLI and the MCP tools alike.
   const keysCard = el('div',{class:'sett-card', id:'sett-keys'});
   keysCard.append(el('h3',{},'API keys (third-party services)'));
@@ -3509,51 +3374,9 @@ function renderSettings() {
   links.append(el('a',{href:'https://github.com/Stinocon/EventHound',target:'_blank',rel:'noopener noreferrer'},'GitHub'));
   // The wiki does not exist (the repository has none), so this pointed at a guaranteed 404 for
   // anyone who clicked it. The in-app Help is the documentation that actually ships.
-  links.append(el('a',{href:'https://github.com/Stinocon/EventHound#readme',target:'_blank',rel:'noopener noreferrer'},'Documentation (README)'));
+  links.append(el('a',{href:'https://github.com/Stinocon/EventHound-Blue#readme',target:'_blank',rel:'noopener noreferrer'},'Documentation (README)'));
   aboutCard.append(links);
   el_.append(aboutCard);
-}
-
-// ─── Optional services (Settings) ───
-// One probe per service, server-side (/api/services): three sockets is too slow for the boot-time
-// /api/health that every view already waits on, so it is asked for here and only here.
-const SERVICE_LABELS = {
-  qdrant:  ['Qdrant (vector store)', 'the RAG index lives here — ./setup.sh up qdrant'],
-  rag_api: ['rag-api (warm models)', 'optional even for the RAG: without it, search runs as a subprocess'],
-  ollama:  ['Ollama (on-box LLM)', 'the Assistant and the per-view Explain buttons — ./setup.sh up ollama'],
-};
-
-async function renderServices() {
-  const body = document.getElementById('services-body');
-  if (!body) return;
-  body.innerHTML = uiLoadingHtml('Asking each service…');
-  let data;
-  try {
-    const res = await fetch('/api/services');
-    data = await res.json();
-    if (!res.ok) { body.innerHTML = uiErrorHtml('Error: ' + (data.error || res.status)); return; }
-  } catch (e) {
-    body.innerHTML = uiErrorHtml('Network error: ' + e);
-    return;
-  }
-  body.innerHTML = '';
-  const list = el('div',{class:'sett-tools'});
-  for (const [key, [label, hint]] of Object.entries(SERVICE_LABELS)) {
-    const svc = data[key] || {state:'unknown', detail:'not reported'};
-    const up = svc.state === 'up';
-    const row = el('div',{class:'sett-tool'});
-    row.append(el('span',{class:'st-icon', html: up ? ICONS.check : ICONS.cross}));
-    row.append(el('span',{class:'st-name'}, label));
-    const colour = up ? 'var(--ok)' : (svc.state === 'down' ? 'var(--bad)' : 'var(--muted)');
-    row.append(el('span',{class:'st-status', style:'color:' + colour},
-                  up ? 'Up' : (svc.state === 'down' ? 'Down' : 'Unknown')));
-    list.append(row);
-    // The detail is the actionable half — which model is missing, which port answered nothing,
-    // what still works without it — so it is shown, not hidden behind a hover.
-    list.append(el('div',{class:'sett-text', style:'margin:-4px 0 8px 26px;color:var(--muted)'},
-                   (svc.detail || '') + (up ? '' : ' · ' + hint)));
-  }
-  body.append(list);
 }
 
 // ─── API keys (Settings) ───

@@ -16,7 +16,7 @@ changelog:
 
 Official ACN documents used as national normative/methodological knowledge to support analysis and documentation writing. The PDFs (raw input) are **gitignored** (`method/acn/*.pdf`); this index remains versioned.
 
-They feed into the RAG collection **`acn`** (source `acn-pdf` in `rag/sources.yaml`). Queryable with:
+They are the raw PDFs in this directory; the curated notes below summarize them.
 
 ```
 cd rag && uv run python -m pipeline.retrieve "<question>" --collection acn

@@ -57,8 +57,6 @@ and *documented, never vendored*.
 | [Eric Zimmerman's tools](https://ericzimmermanstools.com/) (EvtxECmd, MFTECmd, RECmd) | EVTX full stream, MFT, registry | Eric Zimmerman |
 | [Zeek](https://zeek.org/) | PCAP application-layer enrichment (optional) | The Zeek Project |
 | [tshark / Wireshark](https://www.wireshark.org/) | PCAP parsing | Wireshark Foundation |
-| [Qdrant](https://qdrant.tech/) | vector store for the RAG | Qdrant |
-| [Ollama](https://ollama.com/) and the models it pulls | the on-box conversational engine | Ollama, and each model's own licence |
 | [THOR](https://www.nextron-systems.com/thor/) | scan reports are *read*; the scanner is commercial and is not part of this | Nextron Systems |
 | Python dependencies | see each `pyproject.toml` | respective authors |
 
@@ -67,13 +65,13 @@ are vendored. `docs/analysis/yara-rules.md` points at licence-verified sources a
 `analysis/yara_rules/` is gitignored, so rules you clone locally never end up committed under this
 repository's licence.
 
-## 3. Data indexed into the RAG
+## 3. Data in the local knowledge base
 
-The knowledge base is built on your machine from sources that are **not** redistributed here
-(`rag/sources_raw/` is gitignored): the MITRE ATT&CK STIX **bundle** (MITRE, [ATT&CK terms of
-use](https://attack.mitre.org/resources/legal-and-branding/terms-of-use/)) and the official texts
-of GDPR / NIS2 / DORA and ACN guidance, each under its own terms. Vendor product documentation used
-to be indexed too and was removed on 2026-08-27. The bundle itself stays out; the small offline
-**derivative** the engine needs — technique id → name and tactics — is tracked, and is listed in
-section 1 above with MITRE's required copyright designation. The
-regulatory material in the index is a starting point for verification, **never legal advice**.
+The knowledge base lives as **markdown** under `method/` (frameworks, `normative/`, `acn/`,
+`fonti/`) and is built from sources that are **not** redistributed here: the MITRE ATT&CK STIX
+**bundle** (MITRE, [ATT&CK terms of use](https://attack.mitre.org/resources/legal-and-branding/terms-of-use/))
+and the official texts of GDPR / NIS2 / DORA and ACN guidance, each under its own terms. The raw
+PDFs under `method/acn/` are gitignored. The small offline **derivative** the engine needs —
+technique id → name and tactics — is tracked, and is listed in section 1 above with MITRE's required
+copyright designation. The regulatory material is a starting point for verification, **never legal
+advice**.

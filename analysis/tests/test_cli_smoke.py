@@ -198,20 +198,20 @@ def test_combined_clis_take_every_source() -> None:
 
 
 def test_json_flag_is_boolean_or_has_json_out_alias() -> None:
-    """Pins the --json contract split: nine CLIs used to take --json as a PATH to write while four
-    others (run_ai/run_bench/run_decode/run_toolbench) used --json as a boolean "print to stdout"
-    flag — same name, two contracts, and a value-less `--json` on the first group used to be an
-    argparse error. --json-out is now the canonical path flag; --json survives everywhere it took a
-    path only as a deprecated alias (same dest), and stays exactly boolean on the four it always was.
+    """Pins the --json contract split: nine CLIs used to take --json as a PATH to write while
+    two others (run_bench/run_decode) used --json as a boolean "print to stdout" flag — same name,
+    two contracts, and a value-less `--json` on the first group used to be an argparse error.
+    --json-out is now the canonical path flag; --json survives everywhere it took a path only as a
+    deprecated alias (same dest), and stays exactly boolean on the two it always was.
 
-    Source-level AST check rather than a live subprocess per entry point: none of these thirteen
-    CLIs expose their argparse parser separately from main(), so there is no parser object to
-    introspect without invoking --help on all of them and diffing text — more brittle than reading
-    the `add_argument("--json"/"--json-out", ...)` call itself. `ast.walk` over `Call` nodes (not a
+    Source-level AST check rather than a live subprocess per entry point: none of these CLIs expose
+    their argparse parser separately from main(), so there is no parser object to introspect
+    without invoking --help on all of them and diffing text — more brittle than reading the
+    `add_argument("--json"/"--json-out", ...)` call itself. `ast.walk` over `Call` nodes (not a
     text grep) so a reformatted call — multi-line, reordered kwargs — still matches."""
     import ast
 
-    boolean_json_files = {"run_ai.py", "run_bench.py", "run_decode.py", "run_toolbench.py"}
+    boolean_json_files = {"run_bench.py", "run_decode.py"}
 
     for path in sorted((ROOT / "engine").glob("run_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

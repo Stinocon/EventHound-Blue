@@ -2,8 +2,7 @@
 #
 # Un'unica immagine self-contained: i runner scoprono i tool via PATH (tshark/zeek/dotnet) o
 # sotto .tools/ (Hayabusa, EZ tools) — nessuna modifica al codice Python serve, basta che i
-# binari esistano. Orchestrazione: docker-compose.yml di root (qdrant + rag-api + eventhound).
-# La GUI raggiunge il RAG via RAG_API_URL=http://rag-api:8600 (percorso HTTP in app.py).
+# binari esistano. Orchestrazione: docker-compose.yml di root (il solo servizio eventhound).
 #
 # Versioni dei binari come ARG (facili da bumpare). Il BUILD è la verifica: se un URL/versione
 # non regge, il build fallisce qui — non a runtime.
@@ -83,9 +82,8 @@ RUN pip install --no-cache-dir \
 
 # ── 6. Codice del motore + GUI ────────────────────────────────────────────────────────
 # BUILD CONTEXT IS THE REPOSITORY ROOT, not ./analysis. The engine reaches `tools/` through
-# sys.path — `gui/app.py` for the settings store, `ai/tools.py` for the scoring oracle (§6) and the
-# enrichment gate, `ai/ollama_client.py` for the memory guard — and none of it was in this image,
-# so the Settings view returned a 500 in Docker and the assistant could not import its own tools.
+# sys.path — `gui/app.py` for the settings store, the scoring oracle (§6) and the enrichment gate
+# — and none of it was in this image, so the Settings view returned a 500 in Docker.
 # COPY merges into the existing /app without touching the .tools/ populated above.
 #
 # `tools/` goes to /tools and NOT to /app/tools, because that is where the code looks: ANALISI_DIR
@@ -100,8 +98,6 @@ COPY tools/ /tools
 
 # PYTHONPATH=/app: engine/analytics resolve (app.py already inserts parents[1]; this is the belt).
 ENV PYTHONPATH=/app
-# The rag-api service on the compose network (overridable). The subprocess fallback is not needed here.
-ENV RAG_API_URL=http://rag-api:8600
 
 WORKDIR /app/gui
 EXPOSE 8700
