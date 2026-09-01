@@ -28,15 +28,19 @@ changelog:
 >
 > The context is **defensive analysis and authorized incident response only** — not offensive tooling. Output may contain inaccuracies: validate against primary sources before acting on it operationally.
 
-**EventHound** is a **local, offline** cybersecurity analysis suite that combines three main components:
+**EventHound** is a **local, offline** cybersecurity analysis suite that combines two main components:
 
-1. **Analysis engine** (`analysis/`) — ingestion of EVTX, PCAP and generic logs, normalization into a common ECS schema, detection (Hayabusa/Sigma) plus the full **Hayabusa toolbox** (metrics, keyword/regex search, keyword pivots, base64 extraction), long-tail analytics (DuckDB), cross-source correlation, YARA matching, baseline/diffing, case management, threat-intel enrichment (Shodan/VT/ThreatFox, egress-gated), compliance mapping (GDPR/NIS2/DORA). CLI-first; the web GUI (`http://127.0.0.1:8700`) is a thin interface over the engine.
+1. **Analysis engine** (`analysis/`) — ingestion of EVTX, PCAP, registry, MFT, THOR, Okta, CrowdStrike and generic logs, normalization into a common ECS schema, detection (Hayabusa/Sigma) plus the full **Hayabusa toolbox** (metrics, keyword/regex search, keyword pivots, base64 extraction), long-tail analytics (DuckDB), cross-source correlation, YARA matching, baseline/diffing, case management, threat-intel enrichment (Shodan/VT/ThreatFox, egress-gated) and compliance mapping (GDPR/NIS2/DORA). CLI-first; the web GUI (`http://127.0.0.1:8700`) is a thin interface over the engine. The knowledge that grounds an analysis — MITRE ATT&CK, GDPR/NIS2/DORA, ACN — lives as plain markdown under `method/`, read directly.
 
-2. **RAG knowledge base** (`rag/`) — **MITRE ATT&CK** (the full Enterprise matrix, from the official STIX bundle), the **GDPR / NIS2 / DORA** texts, and **ACN** guidance. Indexed with crawl4ai + Qdrant for hybrid retrieval (dense + lexical + rerank). NIST, SANS and ISC2 are configured in `rag/sources.yaml` and **not yet ingested** — three of the ten golden queries fail for that reason, on purpose and visibly (`docs/roadmap.md`).
+2. **Deterministic tools** (`tools/`) — CVSS/EPSS scoring, compliance, Shodan/VT enrichment, workspace hygiene.
 
-3. **Deterministic tools** (`tools/`) — CVSS/EPSS scoring, compliance, Shodan/VT enrichment, workspace hygiene.
-
-EventHound is built to run **fully offline**. Two surfaces do the whole job and either one is enough: **100% via the GUI** and **100% via the terminal (CLI)**. A third, the **on-box AI** (an Ollama-class LLM, `analysis/ai/`), reads an analysis those two produced and reasons about it in prose — it has six read-only tools (RAG retrieval, the Event ID map, the scoring oracle, egress-gated enrichment, SQL over the loaded analysis) and cannot ingest an artifact, write a report or manage a case. It is an assistant over the result, and it is **optional**: the product is whole without it. This paragraph used to claim three surfaces "each complete on its own"; the third never was. Analysis data never leaves the machine: the only outbound traffic is **explicit, opt-in fetches of public resources** — threat-intel / IoC lookups (Shodan, VirusTotal, ThreatFox) — each egress-gated and restricted to public indicators (§9).
+EventHound is built to run **fully offline**. Two surfaces do the whole job and either one is enough:
+**100% via the GUI** and **100% via the terminal (CLI)**. There is no bundled LLM: reasoning about an
+analysis is done by an external agentic harness (Pi, Claude Code, …) through the **analysis MCP
+server** — `analysis/analysis_mcp_server.py` — which runs the pipeline and returns pseudonymized
+findings (§9). Analysis data never leaves the machine: the only outbound traffic is **explicit,
+opt-in fetches of public resources** — threat-intel / IoC lookups (Shodan, VirusTotal, ThreatFox) —
+each egress-gated and restricted to public indicators (§9).
 
 External AI assistants are **development tools**, not part of the shipped product and not required to run it. If you *want* to use one with EventHound, you can — see [Using an AI assistant with EventHound](#using-an-ai-assistant-with-eventhound) below. During development, real client data is handled under strict anonymization (§9); the product itself, being offline, has no cloud to send anything to.
 
@@ -64,7 +68,7 @@ The value is the layer *above and between* them, which no single tool provides:
 
 - **One schema.** Each tool emits a different format; the adapters (`analysis/adapters/`) map them all onto a single ECS-subset schema. That common ground is what makes heterogeneous outputs *comparable* — without it you have seven silos.
 - **Correlation.** The DuckDB engine (`analysis/analytics/`) runs long-tail analytics (process stacking, rare parent-child, rare DNS, beaconing), builds temporal episodes and links indicators *across* sources — the same IP, user, host or hash seen in EVTX, PCAP and logs. This is analysis that operates over the tools' output; none of the wrapped binaries does it alone.
-- **Interpretation.** The RAG grounds findings in knowledge (ATT&CK, the regulatory texts): the engine *flags* (`T1558.003` on `HOST-01`), the RAG *explains*.
+- **Interpretation.** The local knowledge base (`method/`, ATT&CK map) grounds findings: the engine *flags* (`T1558.003` on `HOST-01`), the knowledge base *explains*.
 
 So EventHound is not a GUI over existing tools — it is a **normalization and correlation layer that uses those tools as sensors**. The tools are the probes; the work is putting them on one schema and surfacing the signal that only emerges by crossing them.
 
@@ -74,9 +78,10 @@ For the full component map, the end-to-end data flow and the offline boundary, s
 
 **What it does**
 - **EventHound** — EVTX/PCAP/log ingestion, ECS normalization, detection (Hayabusa/Sigma), long-tail analytics (DuckDB), cross-source correlation, YARA, baseline/diffing, case management, HTML reports, local GUI.
-- **RAG** — semantic search over MITRE ATT&CK, the GDPR/NIS2/DORA texts and ACN guidance.
+- **Knowledge base** — MITRE ATT&CK (vendored as `analysis/analytics/attack_map.json`) and
+  the GDPR/NIS2/DORA and ACN notes under `method/`, read directly as markdown.
 - **Deterministic tools** — CVSS/EPSS scoring, GDPR/NIS2/DORA compliance, Shodan/VT/ThreatFox enrichment.
-- **Local AI** — the product's own conversational layer is an **on-box LLM** (Ollama-class): it reasons over an analysis in context and proposes insight and remediation paths, entirely offline. External AI assistants are used to **develop** the suite, under the rules in `method/conventions.md`; they are not needed to run it.
+- **Agentic analysis** — the suite exposes itself to an external AI harness (Pi, Claude Code, …) through the **analysis MCP server** (`analysis/analysis_mcp_server.py`), which runs the pipeline and returns pseudonymized findings. External AI assistants are used to **develop** the suite too, under `method/conventions.md`; neither is needed to run it.
 
 **What it is NOT**
 - Not a cloud SIEM: it operates **locally and in batch** on the supplied datasets, not in real time.
@@ -93,7 +98,7 @@ matter when the data is real (client data never leaves the machine, security sco
 deterministic oracle, commands are proposed and not executed). It works with any assistant that reads
 the `AGENTS.md` convention — Claude Code, Cursor, Codex, Gemini CLI.
 
-That file also documents the optional `.mcp.json` that exposes the suite's own tools — RAG retrieval,
+That file also documents the optional `.mcp.json` that exposes the suite's own tools — analysis,
 CVSS/EPSS scoring, compliance mapping, threat-intel enrichment — as native MCP tools. It is **not**
 shipped enabled: what your agent launches should be your decision, not a default.
 
@@ -116,31 +121,19 @@ Development of EventHound is done with AI assistants under those same rules; the
 | `data/` | real client data (anonymized) + `pseudonym-map.md` | **private** |
 | `analysis/` | **EventHound**: EVTX/PCAP/log ingestion, ECS normalization, detection (Hayabusa/Sigma), long-tail (DuckDB), correlation, YARA, baseline/diffing, case management, threat-intel enrichment, compliance, GUI (`127.0.0.1:8700`), HTML reports | versioned (real data excluded) |
 | `tools/` | deterministic tools: scoring (CVSS/EPSS), compliance (GDPR/NIS2/DORA), enrichment (Shodan/VT), workspace hygiene (`check.sh`, leak detection, injection scanning) | versioned |
-| `rag/` | RAG infrastructure: `docker-compose.yml`, `sources.yaml`, `pipeline/` (Python), volumes | versioned (data/secrets excluded) |
 
-## RAG knowledge base
-
-The RAG knowledge base is the second pillar of the suite. Stack **dedicated to this project** (separate from other projects): **Qdrant** (vector DB) on host port `6343` — a native binary in the default setup, a container in the Docker one — and **crawl4ai** as the crawler, which runs **in-process as a library**, not as a service. The Python pipeline in `rag/pipeline/` follows the flow: acquisition (PDF or web) → chunk → embed → upsert into Qdrant → index manifest.
-
-Sources are defined in `rag/sources.yaml`, and each collection exists to answer a recurring question (see [Why there is regulation in here](#why-there-is-regulation-in-here)):
-- **`knowledge_cyber`** — MITRE ATT&CK, from the official STIX bundle: *what does this technique mean, and what do I do about it.* NIST CSRC, SANS and ISC2 are configured and not ingested; the three golden queries that cover them fail, which is how you can tell.
-- **`normative`** and **`acn`** — GDPR, NIS2, DORA and the ACN guidance: *is this notifiable, to whom, within how long.*
-
-There is deliberately no **vendor product documentation** here: it dated fast, and the vendors that matter now expose an official MCP server that queries the live product instead.
-
-Operational pipeline details in `rag/README.md`. The retrieval service (`rag-api`) exposes hybrid search over HTTP so lightweight clients (the `analysis/` GUI, other tools) do not have to import the RAG's ML stack in-process; when it is not running the GUI falls back to a subprocess call, so retrieval works either way.
-
+## Privacy and anonymization
 ## Privacy and anonymization
 
 Real data is sensitive. Work is done with **stable pseudonyms** (hosts, users, IPs, domains → `HOST-01`, `USER-01`, …); the real↔pseudonym mapping lives only in `data/pseudonym-map.md` (private). Full rules in `method/anonymization.md`.
 
 Git/privacy model (the project uses git; `data/` and the other sensitive directories are excluded from versioning via `.gitignore`):
-- **Versioned**: `method/`, `docs/<product>/*.md`, `rag/` (code and config).
-- **Excluded** (`.gitignore`): `data/` (client data), `rag/sources_raw/`, `rag/secrets/`, `rag/qdrant_storage/`, `rag/.env`, Python environments.
+- **Versioned**: `method/`, `docs/`, `analysis/` (code), `tools/`.
+- **Excluded** (`.gitignore`): `data/` (client data), `analysis/reports/`, `analysis/cases/`, `analysis/.tools/`, Python environments.
 
 ## Getting started (native — the recommended way)
 
-The whole stack runs natively on **macOS and Linux** — **no part of EventHound requires Docker**, including the RAG crawler (crawl4ai is driven in-process as a library; the container it used to have was never contacted by anything).
+The whole stack runs natively on **macOS and Linux** — **no part of EventHound requires Docker**.
 
 ```bash
 git clone https://github.com/Stinocon/EventHound.git && cd EventHound
@@ -150,118 +143,11 @@ git clone https://github.com/Stinocon/EventHound.git && cd EventHound
 Then open **http://127.0.0.1:8700**. That is enough to analyse evidence: the engine, the CLI and every
 source view work from here.
 
-**What `all` does not do: build the RAG index.** Qdrant starts empty, so the RAG panel and the
-assistant's grounding have nothing to retrieve until you ingest something — see
-[Building and refreshing the RAG index](#building-and-refreshing-the-rag-index). That step needs the
-official regulation PDFs, which are **not in this repository** and which you supply yourself. It is
-optional: nothing in the analysis depends on it.
-
-`all` is the one-shot first run; afterwards the individual verbs are:
-
-```bash
-./setup.sh            # doctor: check every component, report what's missing
-./setup.sh install    # install/download the missing pieces (packages + Hayabusa/EZ-tools/Qdrant binaries + uv sync + model pull)
-./setup.sh up         # start: ollama (:11434, shared) + qdrant (:6343) + rag-api (:8600) + GUI (:8700)
-./setup.sh up qdrant  # start one service only (ollama|qdrant|rag-api|gui)
-./setup.sh down       # stop the services it started (the shared ollama daemon stays up)
-./setup.sh down gui   # stop one service only — same filter as `up`
-./uninstall.sh        # remove what install created (see "Uninstall" below)
-```
-
-`setup.sh` just picks the right platform script — call `./setup-macos.sh` or `./setup-linux.sh` directly if you prefer; they take the same verbs. Each holds only what genuinely differs (package manager, release assets, cache paths); everything else lives once in `tools/setup-common.sh`, so the two cannot drift apart.
-
-`install` pulls uv, ollama, wireshark/tshark, zeek and dotnet — from Homebrew on macOS, from `apt`/`dnf`/`pacman`/`zypper`/`apk` on Linux — downloads the platform binaries of Hayabusa, the EZ tools (EvtxECmd/RECmd/MFTECmd) and **Qdrant** into the gitignored `analysis/.tools/`, runs `uv sync` for the three Python environments, provisions the crawler's Chromium (Playwright — only needed to ingest web sources), and pulls the LLM. One native Ollama daemon (`:11434`) is shared across projects. Service logs and pids live in `.run/`. The checkout folder name is free — nothing in the scripts depends on it.
-
-### What each tool is for, and what happens without it
-
-The information used to be spread across this file, `analysis/README.md`, the installer's `doctor`
-and the runners' error messages. It lives here now, and the last column is the one that matters: an
-analyst needs to know what a missing tool costs before deciding whether to install it.
-
-| Tool | Needed for | Required? | Without it |
-|---|---|---|---|
-| `uv` | every Python entry point | **required** | nothing runs |
-| Hayabusa | EVTX detection (Sigma/ATT&CK) and the toolbox | required *for EVTX* | the EVTX CLIs exit with `Hayabusa binary not found … install it`; in a batch run the file is skipped and reported as an error while every other source proceeds |
-| SigmaHQ community rules | Linux, macOS, cloud, web, network and the thin Windows channels | optional | Hayabusa's built-in ~5000 rules only — narrower reach, no error |
-| tshark | PCAP | required *for PCAP* | explicit error on that file; the batch continues |
-| Zeek | application layer on a PCAP (HTTP, TLS/JA3, DNS answers, notices) | optional | PCAP analysis proceeds on tshark alone — flows and DNS questions, no application detail |
-| `dotnet` + EvtxECmd | full EVTX stream (`--evtx-full`) | optional | detections only; the long tail of undetected events is missing |
-| `dotnet` + RECmd | binary registry hives (SAM/SYSTEM/SOFTWARE/NTUSER.DAT) | optional | native `.reg` exports still work |
-| `dotnet` + MFTECmd | `$MFT` | optional | no filesystem-metadata source |
-| `yara-python` | YARA matching (`uv sync --extra yara`) | optional | rule files are reported as unscannable; nothing else changes |
-| Ollama + a model | the on-box conversational engine | optional | the GUI's Assistant reports the model unavailable; CLI and GUI analysis are unaffected |
-| Qdrant | the RAG | optional | RAG search reports the service down; analysis is unaffected |
-| Playwright/Chromium | crawling web sources into the RAG | optional | local sources (PDF/markdown) still ingest |
-
-**Not installable, and not dependencies** — these are artifacts an analyst *brings*: a THOR scan
-report, an osquery result log, a CrowdStrike detection export, an Okta System Log export. EventHound
-reads them; it never runs or manages those products.
-
-`./setup.sh doctor` prints the same picture for the machine you are on.
-
-**Two platform notes.** On **macOS** native is not merely a preference: Docker containers there are CPU-only and RAM-capped by the Docker VM, so the on-box LLM (~10 GB) OOMs inside one, while native Ollama uses Metal and the full host RAM. Native is not unlimited either — see **Memory** below. On **Linux** the claim is weaker and worth stating plainly — containers get the host kernel and, with the NVIDIA toolkit, the GPU, so Docker is a perfectly good runtime there; `setup-linux.sh` exists so that not wanting containers is a supported choice. Two Linux specifics: `uv` and `ollama` are not packaged by most distros, so the installer uses the vendors' own install scripts and **prints each command before running it**; and **Zeek is optional** — it is absent from most default repos, and rather than add a third-party apt source behind your back the installer reports it missing and carries on, since PCAP analysis works on tshark alone.
-
-Neither platform, or you want a reproducible image: see [Docker](#docker--the-alternative-runtime) below.
-
-### Memory — what the on-box LLM needs
-
-The analysis engine, the GUI and the CLI are frugal. The **on-box LLM is not**, and on Apple silicon it
-competes with everything else for the same unified memory: `qwen2.5:14b` wants roughly **9.1 GiB
-resident**, and the RAG stack, Qdrant, DuckDB, the OS and a browser want the rest. On a 16 GB machine
-that sum does not close. On 2026-08-28 it did not close on this project's own development machine, and
-the graphical session was killed to make room.
-
-The default is therefore **`qwen2.5:7b-instruct`**, on every host — and not as a concession to small
-machines. The measured corpus in [`docs/analysis/performance.md`](docs/analysis/performance.md) has the
-7B passing **54/60** cases against the 14B's 44/60, answering in a non-Latin script **zero** times against
-7 of 60, and running **2.2x** faster; the 14B leads on one metric, narration, by one event out of 42. It
-was preferred for a year on two ad-hoc queries, and the moment it was measured the evidence went the other
-way. A bigger host gets the better model too.
-
-The 14B is still **selectable**, and the choice is saved: pick it in the Assistant's model dropdown (or
-export `EVENTHOUND_LLM_MODEL`), and the CLI, the MCP tools and the next session use it too. The dropdown lists the models Ollama
-has pulled, plus whatever is currently selected — so `ollama pull qwen2.5:14b` first, or the
-picker will tell you it is missing and how to get it. `setup.sh model` prints what this
-installation will actually use, and the installer pulls that one.
-
-Independently of that choice, the engine **refuses a load that will not fit** rather than finding out the
-hard way: before every load that would allocate, it compares the model's size against free memory, minus a
-reserve kept for everything that is not the model — the estimate leans optimistic, and the cost of being
-wrong is paid by the OS rather than by the process that over-allocated. Swap is *reported* in that refusal
-and never causes one: macOS grows its swapfile on demand, so the ratio sits near its ceiling on any machine
-that has ever paged, and using it as a gate refused every load on a host with memory to spare.
-`setup.sh doctor` reports the same verdict for the current machine. The RAG's own embedding and reranking
-models — the suite's other multi-gigabyte load, kept resident from the first query onwards — are checked
-the same way before they load, so an exhausted host can refuse a retrieval too.
-Two ways past a refusal: free memory, or `EVENTHOUND_ALLOW_LOW_MEMORY=1` if you have judged the host
-yourself. What the guard will not do is block the analysis engine: **the LLM and the RAG are optional**,
-and the GUI and CLI are fully functional without either.
-
-### What lives where
-
-Everything EventHound creates stays **inside the project** and is gitignored, with two deliberate exceptions:
-
-| path | what | removed by |
-|------|------|-----------|
-| `analysis/.tools/` | Hayabusa, the EZ tools (EvtxECmd/RECmd/MFTECmd), the Qdrant binary | `uninstall.sh` |
-| `analysis/.venv`, `analysis/gui/.venv`, `rag/.venv`, `tools/*/.venv` | Python environments | `uninstall.sh` |
-| `.run/` | service logs + pids + `install-manifest.json` (version/sha256 of what `install` downloaded) | `uninstall.sh` |
-| `rag/qdrant_storage/` | the RAG index | `uninstall.sh --purge-index` |
-| `rag/fastembed_cache/` | embedding model cache | `uninstall.sh` |
-| `analysis/reports/`, `analysis/cases/`, `data/` | analysis output, saved cases, real client data, and `data/config.json` (API keys, 0600) | never — yours (§9) |
-| *outside*: Homebrew formulae | uv, ollama, tshark, zeek, dotnet — shared with the whole machine | by hand, if you want to |
-| *outside*: `~/.ollama` | LLM model store, shared across projects | `uninstall.sh --purge-models` (removes only this project's model) |
-| *outside*: `~/Library/Caches/ms-playwright` | Chromium used by the crawler, shared across projects | by hand (`playwright uninstall`) |
-| *outside*: `~/eventhound-backups` | default destination of `rag/backup.sh create` | by hand |
-
-### Uninstall
-
-`./uninstall.sh` mirrors the installer. It prints every path with its size, asks for a typed `yes`, and supports `--dry-run` (which is also the default when stdin is not a terminal). The RAG index and the Ollama store are **kept** unless you pass `--purge-index` / `--purge-models`; Homebrew formulae and `data/` are never touched.
 
 ## Using it
 
 Two interchangeable surfaces over the same engine — the GUI is a thin layer, never a shortcut
-around the CLI — and the on-box assistant on top of what they produce (see the paragraph at the
+around the CLI — and an external agentic harness on top of what they produce (see the paragraph at the
 top of this file for what it can and cannot do).
 
 **No evidence to hand? Run the demo first.** It generates one coherent intrusion as ten real source files — appliance logs, an Okta export, an EVTX detection timeline, a `.reg`, a THOR report, a CrowdStrike export, an osquery log, a YARA match and a capture — then ingests them through the ordinary adapters and produces the full analysis and report. Nothing in it is real: the estate is `corp.example` and documentation address space, so it is safe to show anyone.
@@ -298,8 +184,7 @@ uv run python -m engine.run_mft '$MFT'                               # NTFS $MFT
 uv run python -m engine.run_analytics --evtx a.evtx --thor scan.txt  # long-tail + correlation, any source
 uv run python -m engine.run_report --evtx a.evtx --out report.html   # visual report (also --format markdown|json)
 uv run python -m engine.run_case new c1 --evtx sec.evtx               # persistent case (list/add/show/analyze/note/diff)
-uv run python -m engine.run_ai "How do I hunt T1003.001?"            # on-box LLM over the same tools + RAG
-uv run python -m engine.run_ai --case incident-042 "what happened?"  # ...reasoning over a stored case
+uv run python analysis_mcp_server.py                                  # MCP: analyze / analyze_case / eid_lookup
 ```
 
 **Cases — work that survives the session, and the default.** A bundle keeps the conclusions; a **case** keeps the data. It is a directory under `analysis/cases/` with a DuckDB of the events plus notes, so sources can be added over several days, an analysis can be reopened as it was, and two cases can be compared. Every analysis lands in one without being asked to — the correlation worth having happens *between* uploads, so behind an opt-in checkbox the default was the experience where nothing correlates. Each upload then re-analyses the whole case and reports **what changed**, and the gateway/proxy/resolver addresses can be declared so they stop bridging every host to every other:
@@ -346,44 +231,12 @@ Storing a key does **not** enable network traffic: outbound lookups remain opt-i
 
 ## Docker — the alternative runtime
 
-For non-macOS hosts or a reproducible deployment, the root `docker-compose.yml` brings up the whole stack — `qdrant`, `rag-api`, `ollama` and a single `eventhound` image with the engine, the GUI and every wrapped tool baked in:
-
-```bash
-docker compose up -d                                     # whole stack
-docker exec eventhound-ollama ollama pull $(./setup.sh model)  # once: the model this install uses
-```
-
-The compose `ollama` publishes host **11435** (container-internal `11434`) so it does not collide with a native Ollama; the GUI publishes 8700, which collides with a locally-started GUI — stop that one first. `rag/docker-compose.yml` remains for RAG-only use.
-
-## Building and refreshing the RAG index
-
-Qdrant must be up — natively (`./setup.sh up qdrant`) or in Docker (`docker compose up -d qdrant`). Then, from `rag/`:
-
-```bash
-uv sync                           # optional cloud embedding backends: uv sync --extra voyage
-cp .env.example .env              # with fastembed (local default) it works as-is
-
-# content: official regulation PDFs -> rag/sources_raw/normative/ ; ACN PDFs -> method/acn/
-uv run python -m pipeline.ingest --dry-run                       # check: counts documents/chunks
-uv run python -m pipeline.ingest --source normative-pdf          # real ingest of one source
-
-uv run python -m pipeline.retrieve "lateral movement over SMB" --collection knowledge_cyber
-uv run python -m pipeline.evaluate                               # index quality (golden queries)
-./reindex.sh                                                     # full hybrid rebuild of the local collections
-```
-
-> **Web** sources (`enabled: true` in `sources.yaml`) start crawl4ai (Playwright) at ingest time: the first run may require installing the Playwright browsers, and crawling means exposing your public IP — use a VPN (§15). To index only local content use `--source`.
-
-**Embedding**: local default `fastembed` (no API key) with the **multilingual** model `multilingual-e5-large` (1024 dim, high retrieval quality, heavier on CPU). For a lighter/faster option switch to a smaller multilingual model (e.g. `paraphrase-multilingual-MiniLM-L12-v2`, 384 dim) or to Voyage/OpenAI via `EMBEDDING_BACKEND` in `.env`. The vector dimension is detected at runtime; when changing model, an already-created Qdrant collection must be recreated.
-
-**Index quality**: `rag/golden_queries.yaml` collects validated control queries (MITRE ATT&CK, NIST, core concepts). Validation runs **automatically at the end of ingest** on the updated collections (can be disabled with `--no-eval`), and can also be run on demand with `uv run python -m pipeline.evaluate`; it checks that the retrieved content is relevant and flags coverage gaps.
+For non-macOS hosts or a reproducible deployment, the root `docker-compose.yml` brings up a single `eventhound` image with the engine, the GUI and every wrapped tool baked in.
 
 ## Backup and moving to another machine
 
 The **code** travels with the repo; three things do not (all gitignored) and must be reprovisioned:
 
-- **RAG index** (`rag/qdrant_storage/`) — `rag/backup.sh create [dest]` writes a timestamped archive (default `~/eventhound-backups`), stopping Qdrant first for a consistent snapshot and restarting it afterwards; it handles both the native and the Docker runtime. On the new machine: `rag/backup.sh restore <archive.tar.gz>` into an empty storage, then start the stack. Otherwise re-ingest the local PDFs and re-crawl the web sources (VPN, §15).
-- **Ollama model** — `ollama pull $(./setup.sh model)` natively (or `docker exec eventhound-ollama ollama pull …` in Docker). The name is not a constant: the installer asks the engine which model this installation is set to use, which is the default unless somebody chose another one (see **Memory** below).
 - **`data/`** (real client data + `pseudonym-map.md`) — private, never leaves the machine.
 
 ## Development and tests
@@ -392,8 +245,7 @@ One runner covers everything, and it is what "green" means here:
 
 ```bash
 tools/check.sh                 # 16 sections: leak + input/trust guards, doc guards, engine suite,
-                               # GUI (HTTP + JS), scoring/enrichment/compliance golden, RAG tie-breaker
-tools/check.sh --rag           # + RAG golden queries (heavy: loads the models, needs Qdrant on :6343)
+                               # GUI (HTTP + JS), scoring/enrichment/compliance golden
 tools/check.sh --props         # + Hypothesis property tests for the scoring oracle
 tools/check.sh --bench         # + the quick performance profile
 ```
@@ -440,16 +292,16 @@ and answers a different question.
   directly when you need another port.
 - **Edited Python and the GUI did not change.** The server does not reload:
   `./setup.sh down gui && ./setup.sh up gui`. Editing `static/index.html` only needs a browser reload.
-- **`install` could not fetch Hayabusa or Qdrant.** It now says which of the three it was: no
+- **`install` could not fetch Hayabusa.** It says whether it was no network, a rate limit, or no asset matched.
   network, GitHub's unauthenticated releases API rate-limiting you (60 requests an hour per address —
   wait, or download the release yourself into `analysis/.tools/`), or a release whose assets no
   longer match the expected name.
 - **`install` ended with a FAILED list.** It prints a summary of what was installed, skipped and
   failed, and exits non-zero if anything failed — a half-installed system and a complete one used to
   end identically. `./setup.sh all` still starts what it has and still runs `doctor` afterwards: the
-  LLM and the RAG are optional, so a model that would not download is not a reason for nothing to
+  the optional tools are not a reason for nothing to
   start. `doctor` then names what is missing and what it costs.
-- **Which build of Hayabusa / the EZ tools / Qdrant is this?** `.run/install-manifest.json` records
+- **Which build of Hayabusa / the EZ tools is this?** `.run/install-manifest.json` records
   the version and sha256 of everything `install` downloaded. Nothing pins those downloads — that is
   an open question, not a solved one — but what was taken is written down.
 - **The trust-surface guard complains on a fresh clone.** Expected: the baseline is local by design.
@@ -461,8 +313,6 @@ and answers a different question.
   allocating, minus a reserve. Free memory, choose a smaller model in the Assistant's picker, or set
   `EVENTHOUND_ALLOW_LOW_MEMORY=1` if you have judged the host yourself. `./setup.sh doctor` gives the
   same verdict without starting anything.
-- **Ollama is already running for something else.** One daemon on `:11434` is shared across projects;
-  `./setup.sh up ollama` will use it rather than starting a second.
 - **A source produced no records and no error.** Check the warnings line above the results: a missing
   tool now names itself and says what it costs. If Zeek is absent, PCAP analysis runs on tshark alone
   and the application layer is missing — that is reported, not silent.
@@ -477,9 +327,9 @@ knows which is current. In short:
 - **EventHound** — the engine is operational across eleven sources, with correlation, the attack
   map, cases, reports and bundles, the local GUI, and a demo that runs the whole thing with no
   customer evidence at all.
-- **RAG** — three collections that ground *analysis*, not products: `knowledge_cyber` (MITRE ATT&CK
-  from the official STIX bundle), `normative` (GDPR/NIS2/DORA), `acn`. Vendor product documentation
-  deliberately left the RAG on 2026-08-27.
+- **Knowledge base** — markdown under `method/` that grounds *analysis*: `framework/` (MITRE
+  ATT&CK notes), `normative/` (GDPR/NIS2/DORA), `acn`. ATT&CK technique→tactic is vendored in
+  `analysis/analytics/attack_map.json`. Vendor product documentation is deliberately absent.
 
 ### How mature is it, concretely
 
@@ -518,11 +368,11 @@ understanding before you redistribute anything:
 - **Redistributed here**: the Material Symbols icon paths inlined in the GUI (Google, Apache-2.0).
   That is the only piece of somebody else's work that arrives when you clone.
 - **Not redistributed**: every tool EventHound drives — Hayabusa, the Sigma rules it bundles, the
-  Eric Zimmerman tools, Zeek, tshark, Qdrant, Ollama and its models. `setup.sh install` downloads
+  Eric Zimmerman tools, Zeek, tshark. `setup.sh install` downloads
   them into the gitignored `analysis/.tools/`; each keeps its own licence and its authors' terms,
   which you accept by installing them. The Sigma community rules in particular are under the
   **Detection Rule License**, not MIT.
-- **Not redistributed**: the material indexed into the RAG (MITRE ATT&CK STIX, the official
+- **Not redistributed**: the source material of the knowledge base (MITRE ATT&CK STIX, the official
   GDPR / NIS2 / DORA texts and ACN guidance). It is fetched or supplied locally and
   stays under its own terms; the regulatory answers this project produces are a starting point for
   verification, never legal advice.

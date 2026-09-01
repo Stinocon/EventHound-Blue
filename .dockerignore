@@ -1,54 +1,37 @@
-# Build context for `rag/rag-api.Dockerfile` ONLY — the one image built from the repository root.
-#
-# It is built from the root, rather than from ./rag like every other RAG artefact, because the
-# retrieval pipeline shares `tools/hostmem.py` with the on-box LLM: one module, so the project's
-# two gigabyte-scale allocators cannot hold different opinions about the same machine. Docker
-# cannot COPY above its context, so the context has to contain both trees.
+# Build context for `analysis/eventhound.Dockerfile` — the one image built from the repository root.
 #
 # ALLOWLIST, deliberately. The root of this repository holds `data/` — real client material, §10 —
-# and multi-gigabyte indexes (rag/qdrant_storage 1.8 GB, rag/fastembed_cache 3.4 GB), none of which
-# an image built from here has any business seeing.
+# and multi-gigabyte local caches (venvs, .tools, case databases), none of which an image built
+# from here has any business seeing.
 #
 # DO NOT re-include a parent directory to "help the walker descend". That was the first version of
 # this file and it silently defeated the allowlist: Docker's matcher re-tests every pattern against
 # each PARENT PREFIX of a path (`MatchesOrParentMatches` in moby/patternmatcher — the same rule that
 # makes a bare `node_modules` exclude everything under it), and it applies that rule to `!` patterns
-# too. So `!rag` matched the parent of `rag/fastembed_cache/…`, making the exclusion the last match
-# and pulling the whole tree back in: 16,147 files and 5.97 GB reached the daemon instead of 19
-# files. It is unnecessary as well as wrong — BuildKit descends into `rag/` and `tools/` on its own,
-# because the exceptions below are prefixed by them.
+# too. BuildKit descends into `analysis/` and `tools/` on its own, because the exceptions below are
+# prefixed by them.
 #
 # NOTE for whoever adds the next root-context image: this file is why your build sees nothing.
 # Add your paths to the allowlist rather than deleting it.
 **
 
-# --- rag-api.Dockerfile ---------------------------------------------------------------------
-!rag/pipeline
-!rag/pipeline/**
-!rag/rag_api.py
-
 # --- eventhound.Dockerfile ------------------------------------------------------------------
-# The engine and the GUI, plus the shared `tools/` the whole tree imports through sys.path. Before
-# 2026-08-29 this image built from ./analysis, which carries no tools/, so the Settings view was a
-# 500 and the assistant could not import its scoring or enrichment modules.
+# The engine and the GUI, plus the shared `tools/` the whole tree imports through sys.path.
 !analysis
 !analysis/**
 
-# --- shared by both -------------------------------------------------------------------------
-# Only the modules `analysis/` actually imports: eventhound_config (settings + API keys), hostmem
-# (the memory guard, shared with rag/), scoring (the deterministic oracle, §6) and enrichment.
+# --- shared tools --------------------------------------------------------------------------
+# Only the modules `analysis/` actually imports: eventhound_config (settings + API keys), scoring
+# (the deterministic oracle, §6) and enrichment.
 !tools/eventhound_config.py
-!tools/hostmem.py
 !tools/scoring
 !tools/scoring/**
 !tools/enrichment
 !tools/enrichment/**
 
 # --- re-excluded, whatever the rules above re-included ---------------------------------------
-# Ported from the old analysis/.dockerignore, which STOPS BEING READ the moment that image builds
-# from the root: Docker reads one .dockerignore, at the context root. Losing these silently would
-# be expensive — `analysis/.tools/` holds the HOST's macOS Hayabusa and EZ-tool binaries, and the
-# image downloads the Linux ones into the same path at build time.
+# `analysis/.tools/` holds the HOST's macOS Hayabusa and EZ-tool binaries, and the image downloads
+# the Linux ones into the same path at build time.
 analysis/.tools
 analysis/.tools/**
 analysis/reports

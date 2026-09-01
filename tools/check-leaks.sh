@@ -53,7 +53,6 @@ is_forbidden_path() {
   case "$1" in
     analysis/reports/.gitkeep|analysis/reports/templates/*) return 1 ;;
     data/*|\
-    rag/sources_raw/*|rag/secrets/*|rag/qdrant_storage/*|rag/.env|\
     docs/*/pdf/*|method/acn/*.pdf|\
     analysis/reports/*|analysis/.tools/*|analysis/cases/*|\
     *.evtx|*.duckdb|\

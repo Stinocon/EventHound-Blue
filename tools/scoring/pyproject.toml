@@ -10,7 +10,7 @@ description = "Oracolo di scoring deterministico (CVSS, rischio, EPSS) per il wo
 requires-python = ">=3.10"
 dependencies = [
     "PyYAML>=6.0",      # validate.py legge golden.yaml
-    "mcp>=1.0.0",       # server MCP (tool nativi)
+    "mcp>=1.0.0,<2",       # server MCP (tool nativi)
 ]
 
 [dependency-groups]

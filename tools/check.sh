@@ -2,32 +2,24 @@
 # Workspace health check in a single pass: makes the hygiene pipeline executable (method/conventions.md §16)
 # instead of aspirational. Run it before a commit or as a periodic check.
 #
-#   tools/check.sh          leak (tracked files) + INBOUND guard/trust-surface + the analysis test
-#                           suite via pytest with coverage (auto-skips what needs a missing binary
-#                           or dataset) + GUI (Python and JS) + tie-breaker RAG offline + golden
-#                           scoring/enrichment/compliance   (fast, offline)
-#   tools/check.sh --rag    adds RAG golden queries (heavy: loads models, requires Qdrant 6343)
+#   tools/check.sh          leak (tracked files) + INBOUND guard + the analysis test suite via
+#                           pytest with coverage (auto-skips what needs a missing binary or
+#                           dataset) + GUI (Python and JS) + golden scoring/enrichment/compliance
+#                           (fast, offline)
 #   tools/check.sh --props  adds property tests for scoring (Hypothesis, dev-group)
 #   tools/check.sh --bench  adds the quick performance profile (engine.run_bench --analytics
 #                           --quick): it reports timings, it does not assert them — a threshold
 #                           would only encode this machine's speed and fail on someone else's
 #
-# Exits !=0 if a "hard" check fails (leak, guard smoke, analysis/tie-breaker tests broken,
-# golden scoring). INBOUND guards (injection) and trust-surface (config-integrity) are SOFT:
-# print advisory but DON'T block (decision remains with user judgment).
-# NB RAG golden: pipeline.evaluate exits 1 when failed>0 (see evaluate.py: raise SystemExit(1)),
-# so here golden query FAIL BLOCKS. It can ALSO exit non-zero because the host had no room to load
-# the embedding model (the guard now lives in Embedder's constructor); that case is reported as
-# what it is rather than as a coverage failure. Missing collections give SKIP (not FAIL) and don't
-# fail the run; an evaluate crash is still caught by the `|| fail=1` branch.
+# Exits !=0 if a "hard" check fails (leak, guard smoke, analysis tests broken, golden scoring).
+# INBOUND guards (injection) are SOFT: print advisory but DON'T block (decision remains with user
+# judgment).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-WITH_RAG=0
 WITH_PROPS=0
 WITH_BENCH=0
 for arg in "$@"; do
-  [ "$arg" = "--rag" ] && WITH_RAG=1
   [ "$arg" = "--props" ] && WITH_PROPS=1
   [ "$arg" = "--bench" ] && WITH_BENCH=1
 done
@@ -38,9 +30,6 @@ tools/check-leaks.sh --tracked || fail=1
 
 echo "== INBOUND: injection in untrusted areas (soft) =="
 tools/check-injection.sh || true
-
-echo "== trust surface: config integrity vs baseline (soft) =="
-tools/check-config-integrity.sh || true
 
 echo "== docs: repository paths named in tracked .md exist (hard) =="
 # Hard, not soft: a document pointing at a file that does not exist is a wrong instruction, and the
@@ -178,37 +167,6 @@ if [ -f tools/compliance/validate.py ]; then
   fi
 else
   echo "  SKIP (tools/compliance not present)"
-fi
-
-echo "== RAG: tie-breaker authority/recency test (offline) =="
-if (cd rag && uv run python -m pipeline.test_rank_boost >/dev/null 2>&1); then
-  echo "  OK"
-else
-  echo "  FAIL — details: cd rag && uv run python -m pipeline.test_rank_boost"; fail=1
-fi
-
-echo "== RAG: golden query =="
-if [ "$WITH_RAG" -eq 1 ]; then
-  if curl -sf http://localhost:6343/collections >/dev/null 2>&1; then
-    # Output captured rather than discarded: since the memory guard moved into `Embedder`'s
-    # constructor, `evaluate` can also exit non-zero because the HOST had no room to load the
-    # embedding model — and discarding both streams rendered that as "golden query FAIL", sending
-    # the operator to investigate index coverage instead of freeing memory.
-    if rag_out=$( (cd rag && uv run python -m pipeline.evaluate 2>&1) ); then
-      echo "  OK"
-    else
-      if printf '%s' "$rag_out" | grep -q "refusing to load"; then
-        echo "  FAIL — not a coverage failure: $(printf '%s' "$rag_out" | grep -m1 "refusing to load")"
-      else
-        echo "  FAIL — details: cd rag && uv run python -m pipeline.evaluate"
-      fi
-      fail=1
-    fi
-  else
-    echo "  SKIP (Qdrant not running: cd rag && docker compose up -d qdrant)"
-  fi
-else
-  echo "  SKIP (pass --rag to include it)"
 fi
 
 echo ""

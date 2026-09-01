@@ -3,12 +3,11 @@
 #
 # The real work lives in setup-macos.sh / setup-linux.sh (each holds only what genuinely differs;
 # tools/setup-common.sh holds the rest). This is the OS-agnostic door onto them, so that scripts
-# which need to drive the stack — rag/backup.sh restarting Qdrant, start.sh bringing it up,
-# uninstall.sh stopping it — have ONE name to call instead of each repeating the platform test.
+# which need to drive the stack — start.sh bringing the GUI up, uninstall.sh stopping it — have ONE
+# name to call instead of each repeating the platform test.
 #
 #   ./setup.sh            # doctor (default)
-#   ./setup.sh install | up [SERVICE] | down [SERVICE] | all
-#   ./setup.sh model       # the LLM this host can actually load (README, "Memory")
+#   ./setup.sh install | up | down | all
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 

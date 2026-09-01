@@ -105,7 +105,7 @@ only the path check runs. The guard says `PARTIAL` when that happens; treat it a
 
 ## §11 Structure
 
-`analysis/` the engine and GUI · `rag/` the knowledge base · `tools/` deterministic oracles and
+`analysis/` the engine and GUI · `method/` the knowledge base · `tools/` deterministic oracles and
 hygiene · `method/` how analysis is done · `docs/` product and analysis knowledge · `data/` private.
 Where a document and this file disagree, the more specific document wins.
 

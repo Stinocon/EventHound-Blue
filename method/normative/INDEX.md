@@ -18,7 +18,7 @@ changelog:
 
 Area for **regulatory knowledge** in the field of cybersecurity and data protection, useful for both analysis and **documentation writing** (policies, procedures, assessments). Distinct from technical knowledge and methodological frameworks (`method/framework/`).
 
-Official texts and sources are indexed in the RAG in the dedicated collection **`normative`** (see `rag/sources.yaml`); here live the **curated notes** that summarize and link obligations.
+Official texts and sources are the raw PDFs under `method/acn/` and the regulations; here live the **curated notes** that summarize and link obligations.
 
 **Curated notes**: [`obligations-map.md`](obligations-map.md) — incident → notification obligations (GDPR/NIS2/DORA): what must be notified and by when. It is the readable source of truth of the rules automated by the compliance resolver `tools/compliance/` (MCP tool `incident_obligations`).
 

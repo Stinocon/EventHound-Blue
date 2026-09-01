@@ -12,8 +12,8 @@
 # guard that asks git a question behaves differently there than in the clone a user actually makes.
 #
 #   tools/release-check.sh              # clone HEAD, run the gate, report, clean up
-#   tools/release-check.sh --keep       # leave the clone in place for inspection
-#   tools/release-check.sh --keep -- --rag   # pass the rest through to check.sh
+#   tools/release-check.sh --keep              # leave the clone in place for inspection
+#   tools/release-check.sh --keep -- --props   # pass the rest through to check.sh
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -1,7 +1,7 @@
 """Shared bit of the `--json-out PATH` / deprecated `--json PATH` CLI convention.
 
 Nine CLIs under engine/ take a PATH via --json to write full results as JSON, while four others
-(run_ai/run_bench/run_decode/run_toolbench) use --json as a boolean "print to stdout" flag — same
+(run_bench/run_decode) use --json as a boolean "print to stdout" flag — same
 flag name, two contracts. --json-out is now the canonical path flag for the first group; --json
 PATH survives as a working alias (registered on the same `dest`, so either spelling lands in the
 same place) to keep existing scripts and callers working, with one deprecation line on stderr when
