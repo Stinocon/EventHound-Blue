@@ -51,6 +51,9 @@ htmlcov/
 # System
 .DS_Store
 
+# Durable agent memory / session handoff (local-only, never shipped)
+.pi/
+
 # Sigma community rules: local copy of the SigmaHQ repository, not versioned.
 # The custom rules in analysis/sigma/custom/ stay versioned instead.
 analysis/sigma/community/
