@@ -1,0 +1,23 @@
+[project]
+name = "cyber-scoring"
+# Inert: these are workspace environments, not distributions (`package = false`, no
+# build-system), so nothing reads this number. The product version is `analysis/engine/
+# version.py` APP_VERSION — one place, deliberately, because six copies of a version is six
+# things to forget. It had already drifted eight milestones behind DESIGN once.
+version = "0.1.0"
+license = "MIT"
+description = "Oracolo di scoring deterministico (CVSS, rischio, EPSS) per il workspace Cybersecurity"
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0",      # validate.py legge golden.yaml
+    "mcp>=1.0.0",       # server MCP (tool nativi)
+]
+
+[dependency-groups]
+# Solo-dev: property test (test_properties.py). Fuori dal runtime del server MCP; caricato solo
+# da `uv run --group dev` (check.sh --props).
+dev = ["hypothesis>=6.0"]
+
+[tool.uv]
+# Progetto solo-script: uv gestisce l'ambiente, non installa un pacchetto.
+package = false

@@ -1,0 +1,43 @@
+# RAG stack DEDICATED to this project — an instance SEPARATE from PersonalFinance's.
+# Containers, volumes and HOST PORTS are deliberately distinct, so the two stacks run in parallel
+# without sharing a DB. Do not point this project at PersonalFinance's Qdrant.
+#
+# NOTE — no crawler service here. crawl4ai runs IN-PROCESS as a library (rag/pyproject.toml,
+# pipeline/sources/web_source.py drives AsyncWebCrawler directly), so the old `crawl4ai` container
+# was never contacted by anything: nothing in the codebase references its port. It was removed
+# rather than kept as decoration. Web ingest needs the Playwright browser, which
+# `../setup-macos.sh install` provisions natively (`python -m playwright install chromium`).
+
+name: cyber-rag
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: cyber-qdrant
+    ports:
+      - "6343:6333"   # REST/dashboard — host 6343 (PersonalFinance uses the default 6333)
+      - "6344:6334"   # gRPC
+    volumes:
+      - ./qdrant_storage:/qdrant/storage   # volume local to this project, not shared
+    restart: unless-stopped
+
+  # Retrieval as an HTTP service: the analysis/ GUI (and other lightweight clients) query the RAG
+  # over HTTP instead of importing its ML stack in-process. Models stay warm in memory.
+  rag-api:
+    build:
+      # The repository root, not this directory: the image needs tools/hostmem.py (see
+      # rag-api.Dockerfile). The root .dockerignore allowlists what the context may contain.
+      context: ..
+      dockerfile: rag/rag-api.Dockerfile
+    container_name: cyber-rag-api
+    ports:
+      - "8600:8600"   # the GUI uses RAG_API_URL=http://127.0.0.1:8600 (default)
+    environment:
+      - QDRANT_URL=http://qdrant:6333        # compose network: service name, internal port
+      - FASTEMBED_CACHE_DIR=/models          # models persisted in the volume below
+      - EMBEDDING_THREADS=${EMBEDDING_THREADS:-}
+    volumes:
+      - ./fastembed_cache:/models            # model cache: no re-download at every start
+    depends_on:
+      - qdrant
+    restart: unless-stopped

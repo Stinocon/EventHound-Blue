@@ -1,0 +1,39 @@
+# golden.yaml — casi di controllo per il resolver di compliance (validate.py).
+# Verificano la LOGICA di matching (quali obblighi scattano), non la correttezza legale delle
+# tempistiche (quella è dato in obligations.yaml, da validare sul testo ufficiale).
+
+casi:
+  - nome: "data breach senza rischio elevato → solo notifica all'autorità"
+    incident: {personal_data_breach: true}
+    expect_ids: [gdpr-33-authority]
+
+  - nome: "data breach con rischio elevato → autorità + interessati"
+    incident: {personal_data_breach: true, high_risk_to_individuals: true}
+    expect_ids: [gdpr-33-authority, gdpr-34-subjects]
+
+  - nome: "soggetto essenziale NIS2, incidente significativo → 24h/72h/1 mese"
+    incident: {entity_type: essential, significant_incident: true}
+    expect_ids: [nis2-23-early, nis2-23-notification, nis2-23-final]
+
+  - nome: "soggetto importante NIS2, incidente significativo → 24h/72h/1 mese"
+    incident: {entity_type: important, significant_incident: true}
+    expect_ids: [nis2-23-early, nis2-23-notification, nis2-23-final]
+
+  - nome: "fuori ambito NIS2 (entity_type none) → nessun obbligo NIS2"
+    incident: {entity_type: none, significant_incident: true}
+    expect_ids: []
+
+  - nome: "entità finanziaria, incidente ICT grave → DORA art. 19 (3 milestone)"
+    incident: {financial_entity: true, major_ict_incident: true}
+    expect_ids: [dora-19-initial, dora-19-intermediate, dora-19-final]
+
+  - nome: "incidente senza attributi rilevanti → nessun obbligo"
+    incident: {}
+    expect_ids: []
+
+  - nome: "banca con data breach + incidente grave + soggetto essenziale → GDPR+NIS2+DORA"
+    incident: {personal_data_breach: true, entity_type: essential, significant_incident: true,
+               financial_entity: true, major_ict_incident: true}
+    expect_ids: [gdpr-33-authority, nis2-23-early, nis2-23-notification, nis2-23-final,
+                 dora-19-initial, dora-19-intermediate, dora-19-final]
+    most_urgent_id: nis2-23-early   # 24h è la scadenza più breve

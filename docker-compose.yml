@@ -1,0 +1,112 @@
+# EventHound — COMPLETE analysis stack (everything inside Docker).
+#
+# Root orchestrator: qdrant (vector DB) + rag-api (retrieval as an HTTP service) +
+# eventhound (analysis/ engine + GUI :8700 with every tool baked in). A single `docker compose up`
+# starts the whole stack with nothing installed by hand.
+#
+# On macOS prefer the NATIVE stack (`./setup-macos.sh all`): containers there are CPU-only and
+# RAM-capped by the Docker VM, so the on-box 14b model OOMs. This compose file stays for
+# reproducible / non-macOS deployments.
+#
+# rag/docker-compose.yml remains for RAG-only use (it also includes crawl4ai for ingest, which is
+# NOT needed here). Storage and model cache are REUSED from ./rag so the collections are not lost.
+name: eventhound
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: eventhound-qdrant
+    ports:
+      - "127.0.0.1:6343:6333"   # REST/dashboard — host 6343 (PersonalFinance uses 6333)
+      - "127.0.0.1:6344:6334"   # gRPC
+    volumes:
+      - ./rag/qdrant_storage:/qdrant/storage   # reuses the existing storage (already-indexed collections)
+    restart: unless-stopped
+
+  # Retrieval as an HTTP service: ML models kept warm in memory. Slim image (no crawl4ai).
+  rag-api:
+    build:
+      # Root context, not ./rag: the image needs tools/hostmem.py, which Docker cannot COPY from
+      # above a ./rag context. The root .dockerignore is an allowlist that keeps the context to
+      # rag/pipeline, rag/rag_api.py and tools/hostmem.py — data/ and the indexes never enter it.
+      context: .
+      dockerfile: rag/rag-api.Dockerfile
+    container_name: eventhound-rag-api
+    ports:
+      - "127.0.0.1:8600:8600"
+    environment:
+      - QDRANT_URL=http://qdrant:6333        # compose network: service name, internal port
+      - FASTEMBED_CACHE_DIR=/models
+      - EMBEDDING_THREADS=${EMBEDDING_THREADS:-}
+    volumes:
+      - ./rag/fastembed_cache:/models        # reuses the model cache: no re-download
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # On-box LLM: local conversational AI engine (DESIGN §14). Official Ollama image; no model inside
+  # the image (too heavy) → it is pulled on first use and persists in the volume. Loopback-only like
+  # the rest: inference runs on client data, never exposed on the LAN.
+  # Pull the model once: `docker exec eventhound-ollama ollama pull $(./setup.sh model)`
+  #   `setup.sh model` answers with the model this installation uses — qwen2.5:7b-instruct by
+  #   default on every host (the measured corpus prefers it, docs/analysis/performance.md), or
+  #   whatever was chosen in the Assistant's picker. Setting EVENTHOUND_LLM_MODEL above overrides
+  #   both, which is why it is left empty by default: a literal here would pin one model on every
+  #   container deployment regardless of the host, since the environment wins over the stored choice.
+  #   NOTE `/proc/meminfo` is not namespaced, so inside a container the guard measures the HOST
+  #   (or Docker Desktop's VM), not the container and not any mem_limit — it therefore errs
+  #   PERMISSIVE there, and it measures a different machine from the ollama container that
+  #   actually allocates. Treat it as absent in Docker; the model choice above is the defence.
+  # HW NOTE: on Docker Desktop for macOS there is no GPU/Metal access → CPU-only (slower than the
+  #   host Ollama, which uses Metal). On a Linux host with NVIDIA, uncomment the `deploy` block.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eventhound-ollama
+    ports:
+      # Host port 11435 (not 11434) to avoid colliding with another local Ollama (e.g. the
+      # PersonalFinance project's, which must stay up). Container-to-container traffic uses the
+      # compose network (ollama:11434), so this remap only affects host access.
+      - "127.0.0.1:11435:11434"
+    volumes:
+      - ./ollama_storage:/root/.ollama        # persistent local models: no re-download. Docker-only —
+                                              # the native stack uses ~/.ollama instead.
+    restart: unless-stopped
+    # deploy:                                  # Linux host + NVIDIA only (ignored on macOS)
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Analysis engine + GUI. Tools (Hayabusa/tshark/zeek/dotnet+EZ tools) baked into the image.
+  eventhound:
+    build:
+      # Root context, not ./analysis: the engine imports tools/ (settings store, scoring oracle,
+      # enrichment gate, memory guard) through sys.path, and Docker cannot COPY above its context.
+      context: .
+      dockerfile: analysis/eventhound.Dockerfile
+    container_name: eventhound-gui
+    ports:
+      # Loopback only: the GUI shows real client identifiers, never exposed on the LAN (§9/§10).
+      # NOTE: collides with the local GUI auto-started by the SessionStart hook on 8700 — stop that
+      # one before `compose up`, or change the host port here (e.g. "127.0.0.1:8701:8700").
+      - "127.0.0.1:8700:8700"
+    environment:
+      - RAG_API_URL=http://rag-api:8600      # the GUI queries the RAG through the service
+      - OLLAMA_URL=http://ollama:11434       # local AI engine through the service (DESIGN §14)
+      - EVENTHOUND_LLM_MODEL=${EVENTHOUND_LLM_MODEL:-}
+      - EVENTHOUND_RUNTIME=docker            # tells the frontend to display "Docker"
+    volumes:
+      # The settings store (API keys, egress consent, the chosen model) lives at <repo root>/data,
+      # which is `/data` in here. A NAMED volume, deliberately: without it the keys typed into
+      # Settings die with the container, and bind-mounting the host's real `data/` would put client
+      # material inside a container as a default, which is a §10 decision and not one to make here.
+      - eventhound-config:/data
+    depends_on:
+      - rag-api
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  eventhound-config:

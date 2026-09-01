@@ -1,0 +1,17 @@
+[project]
+name = "cyber-compliance"
+# Inert: these are workspace environments, not distributions (`package = false`, no
+# build-system), so nothing reads this number. The product version is `analysis/engine/
+# version.py` APP_VERSION — one place, deliberately, because six copies of a version is six
+# things to forget. It had already drifted eight milestones behind DESIGN once.
+version = "0.1.0"
+license = "MIT"
+description = "Resolver di compliance: incidente → obblighi di notifica (GDPR/NIS2/DORA)"
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0",
+    "mcp>=1.0.0",
+]
+
+[tool.uv]
+package = false

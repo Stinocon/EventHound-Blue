@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="EventHound">
+  <rect width="48" height="48" rx="11" fill="#12151c"/>
+  <!-- orecchie pendenti (mastino/segugio) -->
+  <path d="M17 15 C9 16 6 26 9 34 C10.5 37.5 14 38 15.5 34.5 C16.5 29 17 21 20 17 Z" fill="#3f74e0"/>
+  <path d="M31 15 C39 16 42 26 39 34 C37.5 37.5 34 38 32.5 34.5 C31.5 29 31 21 28 17 Z" fill="#3f74e0"/>
+  <!-- testa -->
+  <path d="M24 11 C31 11 35 16 35 23 C35 31 30.5 37 24 39 C17.5 37 13 31 13 23 C13 16 17 11 24 11 Z" fill="#4f8cff"/>
+  <!-- muso -->
+  <ellipse cx="24" cy="31" rx="7" ry="5.5" fill="#6ea1ff"/>
+  <!-- occhi -->
+  <circle cx="20" cy="23" r="1.9" fill="#0f1115"/>
+  <circle cx="28" cy="23" r="1.9" fill="#0f1115"/>
+  <!-- tartufo -->
+  <ellipse cx="24" cy="31.5" rx="3.1" ry="2.3" fill="#0f1115"/>
+</svg>

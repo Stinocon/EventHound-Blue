@@ -1,0 +1,75 @@
+# golden.yaml — casi di controllo per l'oracolo di scoring (validate.py).
+# I valori attesi sono verificati a mano contro la specifica ufficiale FIRST.org (vedi RIFERIMENTO.md),
+# NON ricopiati dall'output. Gate di correttezza: se cambia un peso o l'arrotondamento, qui si rompe.
+
+casi:
+  # ── CVSS v3.1 base score ──────────────────────────────────────────────────
+  - funzione: cvss_v31_base
+    kwargs: {vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
+    atteso: {score: 9.8, severity: "Critical", scope: "Unchanged"}
+
+  - funzione: cvss_v31_base
+    kwargs: {vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H"}
+    atteso: {score: 10.0, severity: "Critical", scope: "Changed"}
+
+  # Heartbleed (CVE-2014-0160): info disclosure di rete, solo confidenzialità
+  - funzione: cvss_v31_base
+    kwargs: {vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}
+    atteso: {score: 7.5, severity: "High"}
+
+  # Privilege escalation locale tipica (kernel/driver)
+  - funzione: cvss_v31_base
+    kwargs: {vector: "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"}
+    atteso: {score: 7.8, severity: "High"}
+
+  # XSS riflessa canonica (scope changed, impatti bassi)
+  - funzione: cvss_v31_base
+    kwargs: {vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"}
+    atteso: {score: 6.1, severity: "Medium", scope: "Changed"}
+
+  # Nessun impatto -> score 0.0
+  - funzione: cvss_v31_base
+    kwargs: {vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N"}
+    atteso: {score: 0.0, severity: "None"}
+
+  # Senza prefisso CVSS:3.1/ (deve comunque parsare)
+  - funzione: cvss_v31_base
+    kwargs: {vector: "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}
+    atteso: {score: 7.5}
+
+  # ── CVSS v4.0: validazione del vettore (score numerico = follow-up) ────────
+  - funzione: cvss_v40_base
+    kwargs: {vector: "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N"}
+    atteso: {valid: true, score: null}
+
+  # v4.0 con una metrica base mancante (SC): vettore incompleto -> valid:false
+  - funzione: cvss_v40_base
+    kwargs: {vector: "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SI:N/SA:N"}
+    atteso: {valid: false, score: null}
+
+  # ── Matrice di rischio (verosimiglianza × impatto) ─────────────────────────
+  - funzione: risk_matrix
+    kwargs: {likelihood: 5, impact: 5, scale: 5}
+    atteso: {product: 25, normalized: 1.0, level: "Critical"}
+
+  - funzione: risk_matrix
+    kwargs: {likelihood: 1, impact: 2, scale: 5}
+    atteso: {product: 2, normalized: 0.08, level: "Low"}
+
+  - funzione: risk_matrix
+    kwargs: {likelihood: 3, impact: 3, scale: 5}
+    atteso: {product: 9, normalized: 0.36, level: "Medium"}
+
+  - funzione: risk_matrix
+    kwargs: {likelihood: 4, impact: 4, scale: 5}
+    atteso: {product: 16, normalized: 0.64, level: "High"}
+
+  # Confine inferiore esatto: normalized == 0.16 deve restare "Low" (banda <=0.16)
+  - funzione: risk_matrix
+    kwargs: {likelihood: 2, impact: 2, scale: 5}
+    atteso: {product: 4, normalized: 0.16, level: "Low"}
+
+  # Appena sopra 0.16 -> Medium (controlla che il confine non slitti)
+  - funzione: risk_matrix
+    kwargs: {likelihood: 1, impact: 5, scale: 5}
+    atteso: {product: 5, normalized: 0.2, level: "Medium"}

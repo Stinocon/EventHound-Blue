@@ -1,0 +1,192 @@
+{
+  "note": "Expectations for the simulated incident in demo/scenario.py, in the same shape as eval/correlation_corpus.json so engine/run_eval.py's checkers are reused rather than rewritten. Written from the scenario BEFORE it was ever run, then reconciled only where the SCENARIO \u2014 not the engine \u2014 turned out to say something different from what was assumed (the account is named by five tools, not three). `requires` names the external tool a case needs; without it the case is skipped, and said to be skipped.",
+  "cases": [
+    {
+      "id": "demo-bridges",
+      "title": "the designed bridges are found, and the designed noise is not",
+      "requires": [],
+      "rationale": "Every bridge here exercises a different mechanism on purpose. The hash joins three tools that spell it in different case and under two different field names (`file.hash` from THOR, `file.hash.sha256` from CrowdStrike and osquery). The account joins five: a UPN from Okta, a bare name from the appliance log, and `CORP\\\\m.rossi` from EVTX, THOR's file owner and the CrowdStrike user field. The host joins a short name, an FQDN and an uppercase one. Family counts are bounded on BOTH sides, because over-counting inflates confidence exactly as much as under-counting hides a link. The four `absent` entries each appear in two families and must still not bridge them: a correlation that links everything measures nothing.",
+      "knob": "normalize.canon_* / is_generic_* / source_family; store._cell hash and file fallbacks",
+      "expect": {
+        "bridges": [
+          {
+            "indicator": "1244979919f45611fba492483d07cc65d107d183de056043bbc4fe6617a11768",
+            "kind": "file_hash",
+            "min_families": 3,
+            "max_families": 3,
+            "match_type": "exact"
+          },
+          {
+            "indicator": "m.rossi",
+            "kind": "user",
+            "min_families": 5,
+            "max_families": 5,
+            "match_type": "normalized"
+          },
+          {
+            "indicator": "ws-11",
+            "kind": "host",
+            "min_families": 3,
+            "max_families": 3,
+            "match_type": "normalized"
+          },
+          {
+            "indicator": "svcupdate.exe",
+            "kind": "file",
+            "min_families": 3
+          },
+          {
+            "indicator": "203.0.113.77",
+            "kind": "ip",
+            "min_families": 2
+          }
+        ],
+        "absent": [
+          {
+            "indicator": "system",
+            "kind": "user"
+          },
+          {
+            "indicator": "dc-01$",
+            "kind": "user"
+          },
+          {
+            "indicator": "127.0.0.1",
+            "kind": "ip"
+          },
+          {
+            "indicator": "svchost.exe",
+            "kind": "file"
+          }
+        ],
+        "ranking": [
+          [
+            "1244979919f45611fba492483d07cc65d107d183de056043bbc4fe6617a11768",
+            "203.0.113.77"
+          ],
+          [
+            "ws-11",
+            "203.0.113.77"
+          ],
+          [
+            "m.rossi",
+            "ws-11"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "demo-clusters",
+      "title": "one cluster holds the account, the host, the attacker address and the payload",
+      "requires": [],
+      "rationale": "The bridges say which entities are linked; the cluster says they are the SAME incident. It must come out as one component reaching across at least four tool families \u2014 Okta ties the account to the attacker address, EVTX ties the account to the host, THOR ties the host to the payload's hash. If the clustering ever splits them, an analyst reads one intrusion as several.",
+      "knob": "correlate.incident_clusters (Union-Find over co-occurring entities)",
+      "expect": {
+        "clusters": [
+          {
+            "users": [
+              "m.rossi"
+            ],
+            "hosts": [
+              "ws-11"
+            ],
+            "ips": [
+              "203.0.113.77"
+            ],
+            "min_sources": 4,
+            "min_hashes": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "demo-episodes",
+      "title": "the phases do not collapse into one episode",
+      "requires": [],
+      "rationale": "Steps within a phase are under 120 s apart and phases are over 300 s apart, so the scenario is built on the measured session-gap band rather than assuming it. At least three windows must come out spanning more than one family \u2014 fewer means the gap is splitting a real chain; a single episode would mean it is merging unrelated activity.",
+      "knob": "correlate.episodes(gap_seconds=120)",
+      "expect": {
+        "episodes_multi_family": {
+          "min": 3
+        }
+      }
+    },
+    {
+      "id": "demo-timeline",
+      "title": "the timeline keeps the signal and leaves the routine out",
+      "requires": [],
+      "rationale": "Six events carry an ATT&CK technique, three are THOR findings and four are failed authentications \u2014 each must appear with the reason that put it there. `context` must NOT appear: it is the fallback the timeline uses when the salience filter kept nothing, so seeing it here would mean the filter silently gave up. The size bound is the other half of the same claim: the dataset holds a hundred records, and a timeline that keeps them all is a log dump, not a triage view.",
+      "knob": "correlate._TIMELINE_WHY, _NOTABLE_ACTIONS",
+      "expect": {
+        "timeline": {
+          "why_min": {
+            "ATT&CK technique": 5,
+            "THOR finding": 2,
+            "failed action": 4
+          },
+          "why_absent": [
+            "context"
+          ],
+          "max_events": 30
+        }
+      }
+    },
+    {
+      "id": "demo-network",
+      "title": "the beacon is detected; the bulk transfer and the unrelated traffic are not",
+      "requires": [
+        "tshark"
+      ],
+      "rationale": "Six connections exactly 60 s apart to the C2 are a beacon by any definition, and the name the payload resolved must bridge the capture to the EVTX that resolved it. Two flows must stay out, for two different reasons: the unrelated host repeats a destination only three times, below the floor; and the exfiltration is ONE connection whose segments happen to be evenly spaced \u2014 regular packets are not repeated call-backs, and a detector that cannot tell them apart reports every large upload as command-and-control.",
+      "knob": "recipes.beaconing(min_events=4, max_jitter=0.25), connection folding on source.port",
+      "expect": {
+        "bridges": [
+          {
+            "indicator": "updates.cdn-corp.example",
+            "kind": "domain",
+            "min_families": 2,
+            "max_families": 2,
+            "match_type": "exact"
+          },
+          {
+            "indicator": "203.0.113.77",
+            "kind": "ip",
+            "min_families": 3
+          }
+        ],
+        "beaconing": [
+          {
+            "dst_ip": "203.0.113.90",
+            "present": true
+          },
+          {
+            "dst_ip": "198.51.100.20",
+            "present": false
+          },
+          {
+            "dst_ip": "203.0.113.77",
+            "present": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "demo-yara",
+      "title": "the scanner adds a fourth tool to the artifact bridge",
+      "requires": [
+        "yara"
+      ],
+      "rationale": "The YARA target IS the payload's bytes, so the match is real and the file it names is the file the other three tools report. With the scanner installed the artifact bridge must span four families rather than three \u2014 the count is the whole point, since confidence rises with it.",
+      "knob": "adapters.yara_scan (file.name/file.path \u2192 file_canon)",
+      "expect": {
+        "bridges": [
+          {
+            "indicator": "svcupdate.exe",
+            "kind": "file",
+            "min_families": 4
+          }
+        ]
+      }
+    }
+  ]
+}
