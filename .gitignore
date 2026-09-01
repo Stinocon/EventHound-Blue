@@ -1,0 +1,110 @@
+# Real client data and the pseudonym map: never in the repo (§9/§10).
+data/
+
+# RAG: raw inputs (licensed), login sessions, DB volume, credentials
+rag/sources_raw/
+rag/secrets/
+rag/qdrant_storage/
+rag/.env
+
+# Official ACN PDFs: raw RAG inputs (public but heavy). The .md INDEX stays versioned.
+method/acn/*.pdf
+
+# Analysis: private output and raw data. Code/rules/analytics stay versioned.
+# Produced reports and bundles may contain real data -> excluded; the impersonal
+# templates in templates/ stay versioned instead (CLAUDE.md §17).
+analysis/reports/*
+!analysis/reports/.gitkeep
+!analysis/reports/templates/
+!analysis/reports/templates/**
+analysis/.venv/
+analysis/gui/.venv/
+*.duckdb
+# Persistent cases: the stored analysis IS the client data (events + raw records + notes).
+analysis/cases/
+
+# Demo artifacts: regenerated deterministically by engine/run_demo, never committed.
+analysis/demo/out/
+# EVTX: may contain real client data -> never versioned (public test datasets are
+# referenced/re-downloaded, not vendored).
+*.evtx
+
+# Compose dev override (source bind-mount): local, not part of the shipped stack.
+docker-compose.override.yml
+
+# Runtime state of the native setup (service logs + pids): inside the project, never versioned.
+.run/
+# Marker written by the native Qdrant at startup.
+rag/.qdrant-initialized
+
+# Third-party YARA rules cloned locally (their own licenses: do NOT commit them into the public
+# repo, §10). Only the example starter and the placeholder stay tracked. See docs/analysis/yara-rules.md.
+analysis/yara_rules/*
+!analysis/yara_rules/.gitkeep
+!analysis/yara_rules/sample_marker.yar
+
+# Python artifacts of the pipeline
+__pycache__/
+*.pyc
+rag/.venv/
+# uv environments of the tools (scoring oracle, etc.) and test caches
+tools/**/.venv/
+tools/**/.pytest_cache/
+tools/**/.hypothesis/
+# pytest/coverage artifacts (the measurement, not the measured)
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# RAG operational logs (reindex/restore) and ingest state: noise, not knowledge.
+rag/*.log
+rag/ingest_status.json
+
+# fastembed model cache of the rag-api service (Docker volume / local dev): heavy, not versioned.
+rag/fastembed_cache/
+
+# Ollama model store of the legacy compose `ollama` service: the native stack uses ~/.ollama.
+ollama_storage/
+
+# System
+.DS_Store
+
+# Sigma community rules: local copy of the SigmaHQ repository, not versioned.
+# The custom rules in analysis/sigma/custom/ stay versioned instead.
+analysis/sigma/community/
+
+# Analysis engine toolchain (Hayabusa/Qdrant binaries, EZ tools, Zircolite/EVTX-ATTACK-SAMPLES
+# clones): local, not versioned.
+analysis/.tools/
+
+# Analysis engine operational logs (runtime errors): noise, not knowledge.
+analysis/logs/
+
+# effort-dispatch: dispatch telemetry log (runtime, local metadata only). calibration.json
+# and the hooks stay versioned; the log does not.
+tools/effort-dispatch/bench/state/dispatch-log.jsonl
+
+# ── AI-assistant configuration: personal workflow, not part of the product ────────────────
+# EventHound is developed with AI assistants under the rules in method/conventions.md, but their
+# runtime configuration (agents, hooks, skills, dispatch policy) is a local setup, not something a
+# user of the suite downloads or runs. Kept out of the repo deliberately.
+.claude/
+.mcp.json
+# NB: AGENTS.md IS tracked — it is the onboarding file for whoever opens an agent inside
+# the repo. The personal governance document lives beside it as AGENTS.local.md.
+AGENTS.local.md
+CLAUDE.md
+BACKLOG-eventhound.md
+docs/attribuzioni-terzi.md
+tools/effort-dispatch/
+tools/preflight-dispatch.sh
+# Trust-surface snapshot: hashes of the local scripts/config, machine-specific by nature.
+# Generate per clone with: tools/check-config-integrity.sh --update
+tools/config-baseline.sha256
+
+# Assistant configuration is not product code: how an AI works ON this project, not what the
+# product does. Kept out of the repository so the trust surface travels with the operator, not
+# with a clone (docs/roadmap.md, 2026-08-27).
+.agents/
+.codex/

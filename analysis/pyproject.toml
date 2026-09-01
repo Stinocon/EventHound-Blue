@@ -1,0 +1,49 @@
+[project]
+name = "analisi-engine"
+# Inert: these are workspace environments, not distributions (`package = false`, no
+# build-system), so nothing reads this number. The product version is `analysis/engine/
+# version.py` APP_VERSION — one place, deliberately, because six copies of a version is six
+# things to forget. It had already drifted eight milestones behind DESIGN once.
+version = "0.1.0"
+license = "MIT"
+description = "Analysis and correlation engine on security data (EVTX/PCAP/logs -> ATT&CK + correlation)"
+requires-python = ">=3.10"
+# Runtime: stdlib (subprocess/json) plus DuckDB for long-tail analytics and correlation over
+# common-schema records. Everything else the suite drives is an external binary, not a Python dep.
+dependencies = [
+    "duckdb>=1.0.0",
+]
+
+[project.optional-dependencies]
+# YARA (Phase 6, file/memory matching) is optional: C extension, installed on demand.
+#   uv sync --extra yara
+yara = ["yara-python>=4.3"]
+# Test runner and coverage. Development-only: the product runs on `dependencies` alone, and the
+# gate falls back to executing the test files as plain scripts when this extra is absent.
+#   uv sync --extra dev
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.coverage.run]
+source = ["adapters", "ai", "analytics", "engine"]
+# The CLI smoke test runs each entry point as a real subprocess — that is the point, it proves the
+# process starts. Without `parallel`, none of that execution is measured and `engine/run_*.py` reads
+# as 0% covered while being exercised: a coverage number that lies is worse than none. pytest-cov's
+# .pth hook starts coverage in the child when COVERAGE_PROCESS_START is set (tests/_helpers.py does).
+parallel = true
+omit = ["*/__pycache__/*", "tests/*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:", "raise SystemExit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# A test whose external binary or gitignored dataset is missing calls tests._helpers.skip_test,
+# which raises a real pytest skip instead of returning 0 — otherwise a missing tool reads as a
+# passing test, which is precisely the false green this move to pytest exists to remove.
+addopts = "-q --strict-markers"

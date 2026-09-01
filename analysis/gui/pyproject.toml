@@ -1,0 +1,27 @@
+[project]
+name = "analisi-gui"
+# Inert: these are workspace environments, not distributions (`package = false`, no
+# build-system), so nothing reads this number. The product version is `analysis/engine/
+# version.py` APP_VERSION — one place, deliberately, because six copies of a version is six
+# things to forget. It had already drifted eight milestones behind DESIGN once.
+version = "0.1.0"
+license = "MIT"
+description = "Local web GUI over the analysis engine (EVTX/PCAP → long-tail and correlation views)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "python-multipart>=0.0.9",  # file uploads
+    "duckdb>=1.0.0",            # shared with the engine (analytics)
+    "httpx>=0.27",              # required by fastapi.testclient (tests)
+]
+
+[project.optional-dependencies]
+# YARA matching. Optional because a missing yara-python is reported rather than fatal — but without
+# it the GUI silently runs a smaller version of the product than the CLI does: the demo's strongest
+# bridge is one artifact named by FOUR tools, and the browser was only ever seeing three.
+#   cd analysis/gui && uv sync --extra yara
+yara = ["yara-python>=4.3"]
+
+[tool.uv]
+package = false

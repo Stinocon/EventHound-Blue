@@ -1,0 +1,293 @@
+{
+  "corpus_version": 1,
+  "about": "Labelled corpus for the correlation engine: the equivalent of the RAG's golden queries. Every case declares records in the common schema and what the engine MUST conclude from them, so tuning a knob becomes a measurement instead of an act of faith. Run: uv run python -m engine.run_eval. Data is synthetic; addresses come from the documentation ranges (RFC 5737/3849) and identities are pseudonyms (conventions §9) — no client data enters this file.",
+  "expectation_types": {
+    "bridges": "entities that MUST be reported as cross-source bridges (shared_indicators), optionally with a minimum family count and an expected match_type",
+    "absent": "entities that must NOT be reported as bridges: ubiquitous values whose 'link' is noise",
+    "ranking": "ordered pairs [a, b]: a must outrank b in the confidence-sorted output — this is what _KIND_WEIGHT is for",
+    "episodes_multi_family": "how many temporal episodes spanning more than one source are expected",
+    "clusters": "entities that must land in the SAME incident cluster",
+    "beaconing": "destinations that must (or must not) be reported as periodic",
+    "timeline": "which selection criteria must appear in the timeline, and which must not"
+  },
+  "cases": [
+    {
+      "id": "web-to-endpoint-ip-bridge",
+      "title": "A perimeter log and an endpoint log share an attacker IP seconds apart",
+      "rationale": "The canonical reason the common schema exists: two tools that never talk to each other saw the same actor. If this does not bridge, nothing else in the engine matters.",
+      "knob": "indicator extraction, episode session-gap",
+      "records": [
+        {"@timestamp": "2026-07-16T06:28:59Z", "event.source": "log:sma_access.log", "event.category": "web", "event.action": "http-request", "source.ip": "203.0.113.5", "url.original": "/wsproxy?serviceType=SSH", "http.response.status_code": 101},
+        {"@timestamp": "2026-07-16T06:29:04Z", "event.source": "log:sma_access.log", "event.category": "web", "event.action": "http-request", "source.ip": "203.0.113.5", "url.original": "/wsproxy?serviceType=SSH", "http.response.status_code": 101},
+        {"@timestamp": "2026-07-16T06:29:10Z", "event.source": "evtx", "event.category": "authentication", "event.action": "logon", "event.code": 4624, "host.name": "DC-01", "user.name": "CORP\\svc_backup", "source.ip": "203.0.113.5", "logon.type": "3", "attack.techniques": ["T1021.002"]},
+        {"@timestamp": "2026-07-16T11:00:00Z", "event.source": "evtx", "event.category": "process", "event.code": 4688, "host.name": "DC-01", "process.name": "cmd.exe"}
+      ],
+      "expect": {
+        "bridges": [{"indicator": "203.0.113.5", "kind": "ip", "min_families": 2}],
+        "episodes_multi_family": {"min": 1, "max": 1},
+        "clusters": [{"ips": ["203.0.113.5"], "hosts": ["dc-01"], "min_sources": 2}]
+      }
+    },
+    {
+      "id": "episode-slow-chain",
+      "title": "One chain, corroborated by a shared IP, with 90 seconds between its steps",
+      "rationale": "Attackers are not fast, and an analyst typing between steps is slower still. A session-gap tight enough to split a chain that a shared entity independently confirms is too tight — this case is the lower bound on the gap.",
+      "knob": "episodes session-gap (lower bound)",
+      "records": [
+        {"@timestamp": "2026-07-16T05:00:00Z", "event.source": "log:sma_access.log", "event.category": "web", "event.action": "http-request", "source.ip": "203.0.113.15", "url.original": "/cgi-bin/login", "http.response.status_code": 200},
+        {"@timestamp": "2026-07-16T05:01:30Z", "event.source": "evtx", "event.category": "authentication", "event.action": "logon", "event.code": 4624, "host.name": "APP-02", "user.name": "CORP\\svc_web", "source.ip": "203.0.113.15", "logon.type": "3"},
+        {"@timestamp": "2026-07-16T05:02:50Z", "event.source": "evtx", "event.category": "process", "event.action": "process-create", "event.code": 4688, "host.name": "APP-02", "user.name": "CORP\\svc_web", "process.name": "powershell.exe", "process.parent.name": "w3wp.exe", "attack.techniques": ["T1059.001"]}
+      ],
+      "expect": {
+        "bridges": [{"indicator": "203.0.113.15", "kind": "ip", "min_families": 2}],
+        "episodes_multi_family": {"min": 1, "max": 1}
+      }
+    },
+    {
+      "id": "episode-unrelated-eight-minutes",
+      "title": "Two sources eight minutes apart with nothing in common are not one episode",
+      "rationale": "An episode is a bridge by time alone, so a gap wide enough to swallow unrelated activity turns background noise into an incident. This case is the upper bound on the gap: nothing here is shared — different host, user, IP and subnet.",
+      "knob": "episodes session-gap (upper bound)",
+      "records": [
+        {"@timestamp": "2026-07-16T04:00:00Z", "event.source": "log:printer.log", "event.category": "web", "event.action": "http-request", "source.ip": "198.51.100.60", "url.original": "/status", "http.response.status_code": 200},
+        {"@timestamp": "2026-07-16T04:08:00Z", "event.source": "evtx", "event.category": "process", "event.action": "process-create", "event.code": 4688, "host.name": "WS-90", "user.name": "CORP\\marketing1", "process.name": "outlook.exe"}
+      ],
+      "expect": {
+        "episodes_multi_family": {"min": 0, "max": 0}
+      }
+    },
+    {
+      "id": "identity-spelling-normalized",
+      "title": "One account, three spellings, three tools",
+      "rationale": "Okta writes the UPN, Windows writes DOMAIN\\user, a log writes the bare name. Without normalization the busiest identity in an incident looks like three unrelated accounts.",
+      "knob": "normalize.canon_user, match_type reporting",
+      "records": [
+        {"@timestamp": "2026-07-16T08:00:00Z", "event.source": "okta", "event.category": "authentication", "event.action": "user.session.start", "user.name": "alice@corp.example", "source.ip": "203.0.113.20", "event.outcome": "success"},
+        {"@timestamp": "2026-07-16T08:02:00Z", "event.source": "evtx", "event.category": "authentication", "event.action": "logon", "event.code": 4624, "host.name": "WS-07.corp.example", "user.name": "CORP\\Alice", "logon.type": "10"},
+        {"@timestamp": "2026-07-16T08:05:00Z", "event.source": "log:vpn.log", "event.category": "authentication", "event.action": "vpn-connect", "user.name": "alice", "source.ip": "203.0.113.20"}
+      ],
+      "expect": {
+        "bridges": [
+          {"indicator": "alice", "kind": "user", "min_families": 3, "match_type": "normalized"},
+          {"indicator": "203.0.113.20", "kind": "ip", "min_families": 2}
+        ]
+      }
+    },
+    {
+      "id": "identity-realm-conflict",
+      "title": "Same account name, different realms — a possible false merge",
+      "rationale": "alice@corp.example and alice@partner.example are probably not the same person. Normalization that silently merges them invents a link, which is worse than missing one: the engine must surface the candidate and say it needs verifying.",
+      "knob": "normalize.realms_conflict, ambiguous match_type and its confidence penalty",
+      "records": [
+        {"@timestamp": "2026-07-16T09:00:00Z", "event.source": "okta", "event.category": "authentication", "event.action": "user.session.start", "user.name": "alice@corp.example", "source.ip": "203.0.113.30"},
+        {"@timestamp": "2026-07-16T09:04:00Z", "event.source": "log:partner_portal.log", "event.category": "authentication", "event.action": "login", "user.name": "alice@partner.example", "source.ip": "203.0.113.31"}
+      ],
+      "expect": {
+        "bridges": [{"indicator": "alice", "kind": "user", "min_families": 2, "match_type": "ambiguous"}]
+      }
+    },
+    {
+      "id": "hash-outranks-shared-ip",
+      "title": "A shared artifact hash is a stronger bridge than a shared IP",
+      "rationale": "A hash seen on two tools is one artifact. An IP seen on two tools may be a proxy, a NAT gateway or a scanner that touched everyone. Ranking them the other way round sends triage to the noise first.",
+      "knob": "_KIND_WEIGHT and _confidence",
+      "records": [
+        {"@timestamp": "2026-07-16T10:00:00Z", "event.source": "thor", "event.category": "file", "event.action": "thor-finding", "host.name": "WS-07", "file.name": "svc-update.exe", "file.hash": "9f2b7c1d4e5a6b8c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e", "rule.title": "Suspicious binary in user profile", "thor.score": 120},
+        {"@timestamp": "2026-07-16T10:01:00Z", "event.source": "evtx", "event.category": "process", "event.action": "process-create", "event.code": 1, "host.name": "WS-07", "process.name": "svc-update.exe", "file.hash": "9f2b7c1d4e5a6b8c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e"},
+        {"@timestamp": "2026-07-16T10:02:00Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-07", "source.ip": "198.51.100.40", "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T10:03:00Z", "event.source": "log:proxy.log", "event.category": "web", "event.action": "http-request", "source.ip": "203.0.113.60", "url.original": "/index.html"}
+      ],
+      "expect": {
+        "bridges": [
+          {"indicator": "9f2b7c1d4e5a6b8c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e", "kind": "file_hash", "min_families": 2},
+          {"indicator": "203.0.113.60", "kind": "ip", "min_families": 2}
+        ],
+        "ranking": [["9f2b7c1d4e5a6b8c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e", "203.0.113.60"]]
+      }
+    },
+    {
+      "id": "ubiquitous-entities-excluded",
+      "title": "Values that are on every host are not links",
+      "rationale": "SYSTEM, a machine account, loopback and svchost.exe appear in every source of every case. Treating them as bridges connects everything to everything and produces one useless mega-cluster — the failure mode that makes naive correlation worthless.",
+      "knob": "the exclusion lists in _INDICATORS_CTE and normalize.is_generic_*",
+      "records": [
+        {"@timestamp": "2026-07-16T07:00:00Z", "event.source": "evtx", "event.category": "process", "event.action": "process-create", "event.code": 1, "host.name": "WS-11", "user.name": "NT AUTHORITY\\SYSTEM", "process.name": "svchost.exe", "file.name": "svchost.exe", "destination.ip": "127.0.0.1", "destination.port": 135},
+        {"@timestamp": "2026-07-16T07:01:00Z", "event.source": "evtx_full", "event.category": "authentication", "event.action": "logon", "event.code": 4624, "host.name": "WS-11", "user.name": "DC1$", "logon.type": "3"},
+        {"@timestamp": "2026-07-16T07:02:00Z", "event.source": "log:agent.log", "event.category": "process", "event.action": "process-create", "host.name": "WS-12", "user.name": "SYSTEM", "process.name": "svchost.exe", "file.name": "svchost.exe", "source.ip": "127.0.0.1"},
+        {"@timestamp": "2026-07-16T07:03:00Z", "event.source": "log:agent.log", "event.category": "authentication", "event.action": "logon", "host.name": "WS-12", "user.name": "DC1$"}
+      ],
+      "expect": {
+        "absent": [
+          {"indicator": "system", "kind": "user"},
+          {"indicator": "dc1$", "kind": "user"},
+          {"indicator": "127.0.0.1", "kind": "ip"},
+          {"indicator": "svchost.exe", "kind": "file"}
+        ]
+      }
+    },
+    {
+      "id": "beaconing-regular-vs-jittery",
+      "title": "A periodic channel is a beacon; irregular traffic is not",
+      "rationale": "Beaconing is a long-tail signal with a real false-positive cost — legitimate software polls too. The threshold has to keep the metronome and drop the human.",
+      "knob": "recipes.beaconing max_jitter and min_events",
+      "records": [
+        {"@timestamp": "2026-07-16T12:00:00Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-20", "source.ip": "198.51.100.20", "destination.ip": "203.0.113.70", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:00:30Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-20", "source.ip": "198.51.100.20", "destination.ip": "203.0.113.70", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:01:00Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-20", "source.ip": "198.51.100.20", "destination.ip": "203.0.113.70", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:01:31Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-20", "source.ip": "198.51.100.20", "destination.ip": "203.0.113.70", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:02:00Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-20", "source.ip": "198.51.100.20", "destination.ip": "203.0.113.70", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:02:29Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-20", "source.ip": "198.51.100.20", "destination.ip": "203.0.113.70", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:00:00Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-21", "source.ip": "198.51.100.21", "destination.ip": "203.0.113.71", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:00:07Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-21", "source.ip": "198.51.100.21", "destination.ip": "203.0.113.71", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:03:20Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-21", "source.ip": "198.51.100.21", "destination.ip": "203.0.113.71", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:03:32Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-21", "source.ip": "198.51.100.21", "destination.ip": "203.0.113.71", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:12:00Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-21", "source.ip": "198.51.100.21", "destination.ip": "203.0.113.71", "destination.port": 8443},
+        {"@timestamp": "2026-07-16T12:12:45Z", "event.source": "pcap", "event.category": "network", "event.action": "network-connect", "host.name": "WS-21", "source.ip": "198.51.100.21", "destination.ip": "203.0.113.71", "destination.port": 8443}
+      ],
+      "expect": {
+        "beaconing": [
+          {"dst_ip": "203.0.113.70", "present": true},
+          {"dst_ip": "203.0.113.71", "present": false}
+        ]
+      }
+    },
+    {
+      "id": "log-clearing-without-detection",
+      "title": "Clearing the log is the finding, even when no rule fires",
+      "rationale": "A full EVTX stream where the detection engine found nothing is exactly the case where the timeline earns its keep. Anti-forensic actions must survive the salience filter on their own merit, and routine process creation must not drown them.",
+      "knob": "correlate._NOTABLE_ACTIONS",
+      "records": [
+        {"@timestamp": "2026-07-16T13:00:00Z", "event.source": "evtx_full", "event.category": "process", "event.action": "process-create", "event.code": 4688, "host.name": "WS-30", "process.name": "explorer.exe"},
+        {"@timestamp": "2026-07-16T13:01:00Z", "event.source": "evtx_full", "event.category": "process", "event.action": "process-create", "event.code": 4688, "host.name": "WS-30", "process.name": "notepad.exe"},
+        {"@timestamp": "2026-07-16T13:02:00Z", "event.source": "evtx_full", "event.category": "configuration", "event.action": "audit-log-cleared", "event.code": 1102, "host.name": "WS-30", "user.name": "CORP\\dbadmin"},
+        {"@timestamp": "2026-07-16T13:03:00Z", "event.source": "evtx_full", "event.category": "service", "event.action": "service-installed", "event.code": 7045, "host.name": "WS-30", "user.name": "CORP\\dbadmin", "file.name": "updater-svc.exe"}
+      ],
+      "expect": {
+        "timeline": {
+          "why_min": {"high-signal event type": 2},
+          "why_absent": ["context"],
+          "max_events": 2
+        }
+      }
+    },
+    {
+      "id": "cluster-across-three-tools",
+      "title": "Identity, endpoint and scanner findings collapse into one incident",
+      "rationale": "The product's claim is that separate tools describe one incident. A cluster spanning an identity provider, a Windows endpoint and a forensic scanner — joined only through a user and a host — is that claim in its smallest testable form.",
+      "knob": "incident_clusters Union-Find and the entity extraction feeding it",
+      "records": [
+        {"@timestamp": "2026-07-16T14:00:00Z", "event.source": "okta", "event.category": "authentication", "event.action": "user.session.start", "user.name": "bob@corp.example", "source.ip": "203.0.113.90", "event.outcome": "success"},
+        {"@timestamp": "2026-07-16T14:03:00Z", "event.source": "evtx", "event.category": "authentication", "event.action": "logon", "event.code": 4624, "host.name": "WS-40", "user.name": "CORP\\bob", "source.ip": "203.0.113.90", "logon.type": "10", "attack.techniques": ["T1078"]},
+        {"@timestamp": "2026-07-16T14:20:00Z", "event.source": "thor", "event.category": "file", "event.action": "thor-finding", "host.name": "WS-40", "user.name": "CORP\\bob", "file.name": "beacon.dll", "file.hash": "1122334455667788990011223344556677889900112233445566778899001122", "rule.title": "Known implant filename", "thor.score": 200}
+      ],
+      "expect": {
+        "clusters": [{"users": ["bob"], "hosts": ["ws-40"], "ips": ["203.0.113.90"], "min_sources": 3, "min_hashes": 1}]
+      }
+    },
+    {
+      "id": "two-files-one-tool-is-one-corroboration",
+      "title": "Two captures from one sensor are not two tools",
+      "rationale": "A bridge answers 'how many independent tools saw this', and confidence grows with that count. Counting the qualified source label made two PCAPs from the same capture point look like two corroborating tools, so a single sensor could push an IP bridge to high confidence on its own. The family is the unit; the file stays as provenance.",
+      "knob": "normalize.source_family and the family count in _INDICATORS_CTE",
+      "records": [
+        {"@timestamp": "2026-07-16T15:00:00Z", "event.source": "pcap:morning.pcap", "event.category": "network", "event.action": "flow", "source.ip": "192.0.2.50", "destination.ip": "203.0.113.120", "destination.port": 8443, "network.transport": "tcp"},
+        {"@timestamp": "2026-07-16T15:00:30Z", "event.source": "pcap:afternoon.pcap", "event.category": "network", "event.action": "flow", "source.ip": "192.0.2.50", "destination.ip": "203.0.113.120", "destination.port": 8443, "network.transport": "tcp"},
+        {"@timestamp": "2026-07-16T15:01:00Z", "event.source": "log:proxy.log", "event.category": "web", "event.action": "http-request", "source.ip": "192.0.2.50", "url.original": "/health"}
+      ],
+      "expect": {
+        "bridges": [{"indicator": "192.0.2.50", "kind": "ip", "min_families": 2, "max_families": 2}],
+        "absent": [{"indicator": "203.0.113.120", "kind": "ip"}]
+      }
+    },
+    {
+      "id": "sha256-under-either-spelling",
+      "title": "A hash bridges whichever field name the tool used",
+      "rationale": "The strongest bridge there is, a shared artifact hash, was being dropped for two whole sources: CrowdStrike and osquery emit `file.hash.sha256`, which had no column, so their hashes never reached the store while the schema documented them as mapped. An analyst would have read the absence as 'the tools disagree'.",
+      "knob": "the file.hash / file.hash.sha256 fallback in store._cell",
+      "records": [
+        {"@timestamp": "2026-07-16T16:00:00Z", "event.source": "thor", "event.category": "malware", "event.action": "thor-filescan", "host.name": "WS-50", "file.name": "svc-update.exe", "file.hash": "AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899"},
+        {"@timestamp": "2026-07-16T16:00:40Z", "event.source": "crowdstrike", "event.category": "threat", "event.action": "detection", "host.name": "WS-50", "file.name": "svc-update.exe", "file.hash.sha256": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"},
+        {"@timestamp": "2026-07-16T16:01:10Z", "event.source": "osquery", "event.category": "file", "event.action": "hash", "host.name": "ws-50.corp.example", "file.path": "C:\\ProgramData\\Updater\\svc-update.exe", "file.hash.sha256": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"}
+      ],
+      "expect": {
+        "bridges": [
+          {"indicator": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899", "kind": "file_hash", "min_families": 3},
+          {"indicator": "svc-update.exe", "kind": "file", "min_families": 3}
+        ],
+        "ranking": [["aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899", "svc-update.exe"]]
+      }
+    },
+    {
+      "id": "artifact-known-only-by-its-path",
+      "title": "A tool that reports only a full path still names the same artifact",
+      "rationale": "YARA and osquery file events carry `file.path` and no `file.name`. Without reading the path, those records entered the store carrying no artifact at all, so a YARA match could never bridge to the EVTX that executed the same binary — the single most obvious link a scanner is bought for.",
+      "knob": "the file.path fallback feeding canon_file in store._cell",
+      "records": [
+        {"@timestamp": "2026-07-16T17:00:00Z", "event.source": "evtx", "event.category": "process", "event.action": "process-create", "event.code": 4688, "host.name": "WS-60", "file.name": "beacon.exe", "process.name": "beacon.exe"},
+        {"@timestamp": "2026-07-16T17:00:50Z", "event.source": "yara", "event.category": "file", "event.action": "yara-match", "file.path": "C:\\Users\\Public\\Beacon.EXE", "rule.name": "DEMO_Beacon"}
+      ],
+      "expect": {
+        "bridges": [{"indicator": "beacon.exe", "kind": "file", "min_families": 2, "match_type": "normalized"}]
+      }
+    },
+    {
+      "id": "beacon-is-a-connection-not-a-packet",
+      "title": "Six call-backs are a beacon; six segments of one connection are not",
+      "rationale": "A beacon is a connection repeated on a metronome. tshark reports a capture packet by packet and Zeek reports the same capture connection by connection, so without the ephemeral source port every SYN, ACK and data segment counted as its own call-back: the mean interval collapsed toward zero, the jitter exploded, and a real beacon went undetected on any capture richer than one packet per flow. The mirror error is just as costly \u2014 a single bulk transfer whose segments happen to be evenly spaced must never be reported as command-and-control. Both flows here have the same cadence; only the number of connections tells them apart.",
+      "knob": "recipes.beaconing connection folding on source.port",
+      "records": [
+        {"@timestamp": "2026-07-16T13:00:00Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50500, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:00:00.200000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50500, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:00:00.400000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50500, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:01:00Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50501, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:01:00.200000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50501, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:01:00.400000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50501, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:02:00Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50502, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:02:00.200000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50502, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:02:00.400000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50502, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:03:00Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50503, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:03:00.200000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50503, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:03:00.400000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50503, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:04:00Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50504, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:04:00.200000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50504, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:04:00.400000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50504, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:05:00Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50505, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:05:00.200000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50505, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:05:00.400000Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50505, "destination.ip": "203.0.113.60", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:00:30Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50600, "destination.ip": "203.0.113.61", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:01:30Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50600, "destination.ip": "203.0.113.61", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:02:30Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50600, "destination.ip": "203.0.113.61", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:03:30Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50600, "destination.ip": "203.0.113.61", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:04:30Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50600, "destination.ip": "203.0.113.61", "destination.port": 443},
+        {"@timestamp": "2026-07-16T13:05:30Z", "event.source": "pcap:capture.pcap", "event.category": "network", "host.name": "WS-30", "source.ip": "198.51.100.30", "source.port": 50600, "destination.ip": "203.0.113.61", "destination.port": 443}
+      ],
+      "expect": {
+        "beaconing": [
+          {"dst_ip": "203.0.113.60", "present": true},
+          {"dst_ip": "203.0.113.61", "present": false}
+        ]
+      }
+    },
+    {
+      "id": "corroboration-cannot-outrank-the-stronger-kind",
+      "title": "Five tools naming one account do not make it a stronger bridge than one shared artifact",
+      "rationale": "Confidence answers two different questions at once — how strong is this KIND of link, and how many independent tools corroborate it — and the second must never overturn the first. The old scale summed a kind weight of up to 1.0 with a corroboration bonus of up to 0.3 and then clamped to 1.0, so both of the bridges below came out at exactly 1.00 and the tie fell through to the family count: the account, seen by five tools, was ranked ABOVE the hash, seen by two. That is the reverse of the hierarchy the module documents, and it is what an analyst reads first. The hash here is deliberately the weakest it can be (exactly two families) and the account the strongest (five, all spelling it identically, so no normalization penalty applies): if corroboration can cross a band at all, it crosses it here.",
+      "knob": "_KIND_WEIGHT bands, _MAX_CORROBORATION and _confidence",
+      "records": [
+        {"@timestamp": "2026-07-18T09:00:00Z", "event.source": "thor", "event.category": "file", "event.action": "thor-finding", "host.name": "WS-21", "file.name": "svcupdate.exe", "file.hash": "3c1f9a6b2d8e4705c1a9b3d7e2f480615a9c8d7e6f5041b2c3d4e5f60718293a", "rule.title": "Suspicious binary in ProgramData", "thor.score": 140},
+        {"@timestamp": "2026-07-18T09:01:00Z", "event.source": "evtx", "event.category": "process", "event.action": "process-create", "event.code": 1, "host.name": "WS-21", "process.name": "svcupdate.exe", "file.hash": "3c1f9a6b2d8e4705c1a9b3d7e2f480615a9c8d7e6f5041b2c3d4e5f60718293a", "user.name": "m.rossi"},
+        {"@timestamp": "2026-07-18T09:02:00Z", "event.source": "okta", "event.category": "authentication", "event.action": "user-authentication", "user.name": "m.rossi", "source.ip": "203.0.113.24", "event.outcome": "success"},
+        {"@timestamp": "2026-07-18T09:03:00Z", "event.source": "log:sma_access.log", "event.category": "web", "event.action": "http-request", "user.name": "m.rossi", "source.ip": "203.0.113.24", "url.original": "/portal"},
+        {"@timestamp": "2026-07-18T09:04:00Z", "event.source": "crowdstrike", "event.category": "process", "event.action": "detection", "host.name": "WS-21", "user.name": "m.rossi", "rule.title": "Suspicious process"},
+        {"@timestamp": "2026-07-18T09:05:00Z", "event.source": "osquery", "event.category": "process", "event.action": "process-snapshot", "host.name": "FS-02", "user.name": "m.rossi", "process.name": "bash"}
+      ],
+      "expect": {
+        "bridges": [
+          {"indicator": "3c1f9a6b2d8e4705c1a9b3d7e2f480615a9c8d7e6f5041b2c3d4e5f60718293a", "kind": "file_hash", "min_families": 2, "max_families": 2, "match_type": "exact"},
+          {"indicator": "m.rossi", "kind": "user", "min_families": 5, "max_families": 5, "match_type": "exact"}
+        ],
+        "ranking": [["3c1f9a6b2d8e4705c1a9b3d7e2f480615a9c8d7e6f5041b2c3d4e5f60718293a", "m.rossi"]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+# obligations.yaml — regole di mappatura incidente → obblighi di notifica (GDPR/NIS2/DORA).
+#
+# DATO, non codice: ogni regola cita l'articolo e porta `da_validare: true`. Le tempistiche
+# vanno CONFERMATE sul testo ufficiale (il RAG contiene GDPR/NIS2/DORA: interrogarlo) — alcune
+# (es. DORA) sono dettagliate da RTS/ITS e qui sono indicative. NON è consulenza legale.
+#
+# trigger: condizioni sugli attributi dell'incidente (vedi compliance.py). Valore scalare =
+# uguaglianza; valore lista = appartenenza. Tutte le condizioni devono essere vere.
+
+obbligazioni:
+  - id: gdpr-33-authority
+    norma: GDPR
+    trigger: {personal_data_breach: true}
+    authority: "Autorità di controllo (in Italia: Garante privacy)"
+    milestone: "Notifica della violazione all'autorità di controllo"
+    within_hours: 72
+    when: "da quando il titolare ne viene a conoscenza"
+    reference: "Reg. (UE) 2016/679, art. 33"
+    da_validare: true
+
+  - id: gdpr-34-subjects
+    norma: GDPR
+    trigger: {personal_data_breach: true, high_risk_to_individuals: true}
+    authority: "Interessati (data subjects)"
+    milestone: "Comunicazione della violazione agli interessati"
+    within_hours: null
+    when: "senza ingiustificato ritardo (rischio elevato per i diritti e le libertà)"
+    reference: "Reg. (UE) 2016/679, art. 34"
+    da_validare: true
+
+  - id: nis2-23-early
+    norma: NIS2
+    trigger: {entity_type: [essential, important], significant_incident: true}
+    authority: "CSIRT nazionale / autorità competente"
+    milestone: "Pre-allarme (early warning)"
+    within_hours: 24
+    when: "da quando si è venuti a conoscenza dell'incidente significativo"
+    reference: "Dir. (UE) 2022/2555, art. 23"
+    da_validare: true
+
+  - id: nis2-23-notification
+    norma: NIS2
+    trigger: {entity_type: [essential, important], significant_incident: true}
+    authority: "CSIRT nazionale / autorità competente"
+    milestone: "Notifica dell'incidente"
+    within_hours: 72
+    when: "da quando si è venuti a conoscenza dell'incidente significativo"
+    reference: "Dir. (UE) 2022/2555, art. 23"
+    da_validare: true
+
+  - id: nis2-23-final
+    norma: NIS2
+    trigger: {entity_type: [essential, important], significant_incident: true}
+    authority: "CSIRT nazionale / autorità competente"
+    milestone: "Relazione finale"
+    within_hours: 720   # ~1 mese
+    when: "entro un mese dalla notifica dell'incidente"
+    reference: "Dir. (UE) 2022/2555, art. 23"
+    da_validare: true
+
+  - id: dora-19-initial
+    norma: DORA
+    trigger: {financial_entity: true, major_ict_incident: true}
+    authority: "Autorità competente (settore finanziario)"
+    milestone: "Notifica iniziale dell'incidente grave ICT"
+    within_hours: null
+    when: "tempistiche di dettaglio definite da RTS/ITS — da confermare"
+    reference: "Reg. (UE) 2022/2554, art. 19"
+    da_validare: true
+
+  - id: dora-19-intermediate
+    norma: DORA
+    trigger: {financial_entity: true, major_ict_incident: true}
+    authority: "Autorità competente (settore finanziario)"
+    milestone: "Relazione intermedia"
+    within_hours: null
+    when: "tempistiche di dettaglio definite da RTS/ITS — da confermare"
+    reference: "Reg. (UE) 2022/2554, art. 19"
+    da_validare: true
+
+  - id: dora-19-final
+    norma: DORA
+    trigger: {financial_entity: true, major_ict_incident: true}
+    authority: "Autorità competente (settore finanziario)"
+    milestone: "Relazione finale"
+    within_hours: null
+    when: "tempistiche di dettaglio definite da RTS/ITS — da confermare"
+    reference: "Reg. (UE) 2022/2554, art. 19"
+    da_validare: true

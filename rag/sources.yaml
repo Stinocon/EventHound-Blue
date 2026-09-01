@@ -1,0 +1,254 @@
+# sources.yaml — sorgenti da indicizzare nel RAG
+# Pipeline: acquisizione (crawl4ai per web / parser per pdf) -> chunk -> embed -> upsert in Qdrant.
+# Vedi rag/README.md per il flusso operativo e per l'auth dietro login.
+#
+# NOTA: i nomi esatti delle opzioni del crawler vanno confermati sulla doc di
+# crawl4ai (https://docs.crawl4ai.com/). Questo file è la *configurazione di intento*:
+# la pipeline lo legge e traduce nei parametri reali di crawl4ai/Qdrant.
+
+version: 1
+
+# ---- valori di default ereditati da ogni sorgente (sovrascrivibili) ----
+defaults:
+  embedding:
+    # Modello locale (fastembed) effettivo: vedi pipeline/embedder.py DEFAULT_MODELS.
+    # intfloat/multilingual-e5-large -> 1024 dim, multilingue, con prefissi query/passage.
+    model: intfloat/multilingual-e5-large
+  chunk:
+    # e5-large (come gran parte degli encoder) tronca a 512 token: i chunk vanno
+    # tenuti sotto quel limite, altrimenti la coda non entra nell'embedding.
+    # ~4 char/token -> 400 token ~= 1600 char, con margine sotto i 512.
+    max_tokens: 400
+    overlap: 80
+  crawler:
+    engine: crawl4ai          # = Playwright; serve per portali SPA
+    render_js: true
+    # Portata (precisione + performance: non rastrellare interi siti)
+    max_depth: 2
+    max_pages: 300
+    # Cortesia / anti-aggressività
+    respect_robots: true      # rispetta robots.txt
+    mean_delay: 1.5           # ritardo medio tra le richieste (s)
+    max_concurrency: 3        # richieste in parallelo massime
+    # Identifying, per §15 — but through the project, not a personal mailbox: a site operator who
+    # wants to complain needs a reachable contact, and the GitHub noreply address is one.
+    user_agent: "EventHound/0.1 (+https://github.com/Stinocon/EventHound; contact 2804739+Stinocon@users.noreply.github.com)"
+    # Precisione del contenuto (scarta boilerplate e pagine povere)
+    word_count_threshold: 50
+    exclude_external_links: true
+    excluded_tags: [nav, header, footer, aside, script, style, form, noscript]
+    # Performance
+    cache_mode: enabled       # riusa la cache, evita di riscaricare le stesse pagine
+    light_mode: true          # browser più leggero
+    text_mode: false          # tenere false con le SPA (serve il rendering)
+    page_timeout_ms: 30000
+    # Robustezza: se un seed non rende nulla (blocco anti-bot/pagina vuota), tenta lo snapshot
+    # archiviato della pagina seed da archive.org (Wayback). Default off: è comunque rete in
+    # uscita → vale §15 (VPN + conferma). Le sorgenti fallite sono censite in ingest_status.json.
+    wayback_fallback: false
+
+# ---- sorgenti ----
+sources:
+
+  # ===== Conoscenza condivisa: fonti pubbliche di cybersecurity =====
+  # Crawling libero. Pattern stretti: solo contenuto tecnico/metodologico, non marketing.
+
+  # MITRE ATT&CK — VIA PRIMARIA: bundle STIX ufficiale LOCALE (completo, riproducibile, niente
+  # scraping/VPN). Copre tecniche, tattiche, mitigazioni, gruppi, software, data source in un file.
+  # Deposita/aggiorna il bundle con:
+  #   curl -sSL -o rag/sources_raw/mitre/enterprise-attack.json \
+  #     https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json
+  - id: mitre-attack-stix
+    enabled: true
+    type: stix
+    framework: mitre-attack
+    level: 1
+    collection: knowledge_cyber
+    source:
+      path: ./sources_raw/mitre/enterprise-attack.json
+    metadata:
+      source_name: "MITRE ATT&CK (STIX ufficiale)"
+      tags: [framework, mitre-attack, ttp, stix]
+
+  # MITRE ATT&CK via crawl del sito — SUPERATA dallo STIX (sopra) e DISABILITATA: lo STIX dà
+  # copertura totale offline. Pattern ristretti alle sole pagine ad alto valore (TTP/mitigazioni/
+  # data source; esclusi /software/ e /groups/, voluminosi e a minor valore analitico). Ri-abilitare
+  # solo se serve un supplemento web — ed è comunque scraping (VPN + conferma §15).
+  - id: mitre-attack
+    enabled: false
+    type: web
+    framework: mitre-attack
+    level: 1
+    collection: knowledge_cyber
+    crawler:
+      seeds: ["https://attack.mitre.org/"]
+      include_patterns: ["/techniques/", "/tactics/", "/mitigations/", "/datasources/"]
+      max_pages: 250
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "MITRE ATT&CK (web, supplemento)"
+      tags: [framework, mitre-attack, ttp]
+
+  # NIST CSRC — glossario, pubblicazioni SP 800, CSF. Cuore della metodologia.
+  # Si usa csrc.nist.gov (non www.nist.gov, che è generalista e fuori ambito).
+  - id: nist-csrc
+    enabled: true
+    type: web
+    framework: nist
+    level: 1
+    collection: knowledge_cyber
+    crawler:
+      seeds:
+        - "https://csrc.nist.gov/glossary"
+        - "https://csrc.nist.gov/publications/sp800"
+        - "https://www.nist.gov/cyberframework"
+      include_patterns: ["/glossary", "/publications/", "/pubs/", "/cyberframework"]
+      exclude_patterns: ["/news/", "/events/", "/csrc/media/"]
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "NIST CSRC (glossario, SP 800, CSF)"
+      tags: [nist, csrc, glossary, standard]
+
+  # NIST NVD — vulnerabilità (CVE). Utile come riferimento, alto volume: tenere depth basso.
+  - id: nist-nvd
+    enabled: false              # opzionale: alto volume; valutare API NVD invece del crawl
+    type: web
+    framework: nist
+    level: 1
+    collection: knowledge_cyber
+    crawler:
+      seeds: ["https://nvd.nist.gov/vuln"]
+      include_patterns: ["/vuln/"]
+      max_depth: 1
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "NIST NVD"
+      tags: [nist, nvd, cve, vulnerability]
+
+  # SANS (EMEA) — valore reale nei white paper / risorse, non nelle pagine corso.
+  - id: sans
+    enabled: true
+    type: web
+    framework: sans
+    level: 2
+    collection: knowledge_cyber
+    crawler:
+      seeds:
+        - "https://www.sans.org/white-papers/"
+        - "https://www.sans.org/security-resources/"
+      include_patterns: ["/white-papers/", "/security-resources/", "/posters/"]
+      exclude_patterns: ["/cyber-security-courses/", "/event", "/profiles/", "/account"]
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "SANS — white paper e risorse"
+      tags: [sans, methodology, whitepaper]
+
+  # ISC2 — gran parte del contenuto formativo è gated; indicizzare solo gli articoli "insights".
+  - id: isc2
+    enabled: true
+    type: web
+    framework: isc2
+    level: 2
+    collection: knowledge_cyber
+    crawler:
+      seeds: ["https://www.isc2.org/Insights"]
+      include_patterns: ["/Insights", "/insights"]
+      exclude_patterns: ["/register", "/login", "/certifications", "/membership", "/training"]
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "ISC2 — Insights"
+      tags: [isc2, governance, articles]
+
+  # ===== Normative / compliance (RAG di supporto alla scrittura di documentazione) =====
+  # Via PRIMARIA: PDF ufficiali scaricati a mano in sources_raw/normative/ e indicizzati
+  # come type: pdf (EUR-Lex serve i PDF in modo asincrono/anti-bot: il download da script
+  # ritorna 202 vuoto, quindi i file vanno scaricati dal browser). Vedi il README in
+  # quella cartella per gli URL ufficiali. Le sorgenti type: web qui sotto restano come
+  # fallback opt-in (richiedono VPN, vedi §15 di CLAUDE.md).
+  - id: normative-pdf
+    enabled: true
+    type: pdf
+    framework: normative
+    level: 1                       # testi ufficiali UE
+    collection: normative
+    source:
+      path: ./sources_raw/normative/
+      glob: "*.pdf"
+    metadata:
+      source_name: "Normative UE — testi ufficiali (EUR-Lex, PDF)"
+      tags: [normativa, gdpr, nis2, dora, eu, official]
+
+  - id: gdpr-eurlex
+    enabled: false
+    type: web
+    framework: gdpr
+    level: 1
+    collection: normative
+    crawler:
+      seeds:
+        - "https://eur-lex.europa.eu/legal-content/IT/TXT/?uri=CELEX:32016R0679"   # Reg. (UE) 2016/679 — URL da confermare
+      include_patterns: ["CELEX:32016R0679", "/legal-content/"]
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "GDPR — Regolamento (UE) 2016/679 (EUR-Lex)"
+      tags: [normativa, gdpr, privacy, eu]
+
+  - id: nis2-eurlex
+    enabled: false
+    type: web
+    framework: nis2
+    level: 1
+    collection: normative
+    crawler:
+      seeds:
+        - "https://eur-lex.europa.eu/legal-content/IT/TXT/?uri=CELEX:32022L2555"   # Dir. (UE) 2022/2555 — URL da confermare
+      include_patterns: ["CELEX:32022L2555", "/legal-content/"]
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "NIS2 — Direttiva (UE) 2022/2555 (EUR-Lex)"
+      tags: [normativa, nis2, eu]
+
+  # ===== ACN — Agenzia per la Cybersicurezza Nazionale =====
+  # Via PRIMARIA: PDF ufficiali scaricati a mano in method/acn/ (linee guida,
+  # gestione incidenti, tassonomia, cyber risk management/security by design).
+  # I PDF sono gitignored (input grezzi); l'INDICE in method/acn/ resta versionato.
+  - id: acn-pdf
+    enabled: true
+    type: pdf
+    framework: acn
+    level: 1                       # documenti ufficiali dell'autorità nazionale
+    collection: acn
+    source:
+      path: ../method/acn/
+      glob: "*.pdf"
+    metadata:
+      source_name: "ACN — Agenzia per la Cybersicurezza Nazionale (PDF ufficiali)"
+      tags: [acn, normativa, italia, linee-guida, incident-management]
+
+  # Portale ACN — crawl OPT-IN: scraping del sito dell'autorità nazionale.
+  # NON abilitare senza VPN attiva e conferma esplicita (§15 di CLAUDE.md).
+  - id: acn-web
+    enabled: false
+    type: web
+    framework: acn
+    level: 1
+    collection: acn
+    crawler:
+      seeds: ["https://www.acn.gov.it/portale/home"]
+      include_patterns: ["/portale/"]
+      exclude_patterns: ["/login", "/area-riservata", "/amministrazione-trasparente"]
+      auth: { required: false, method: none }
+    metadata:
+      source_name: "ACN — portale (acn.gov.it)"
+      tags: [acn, italia, portale]
+
+# ---- mappa delle collection Qdrant ----
+# Una collection per "dominio" di conoscenza; più sorgenti possono confluire nella stessa.
+# Collezioni con prefisso/istanza dedicata a questo progetto (NON condivise con PersonalFinance).
+collections:
+  knowledge_cyber:
+    description: "Conoscenza condivisa di cybersecurity: MITRE ATT&CK, NIST CSRC/CSF, SANS, ISC2"
+  normative:
+    description: "Normative e compliance (GDPR, NIS2, DORA) per analisi e scrittura di documentazione"
+  acn:
+    description: "Agenzia per la Cybersicurezza Nazionale: linee guida, gestione incidenti, tassonomia, cyber risk management"

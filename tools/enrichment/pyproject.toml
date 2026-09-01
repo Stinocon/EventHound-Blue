@@ -1,0 +1,25 @@
+[project]
+name = "cyber-enrichment"
+# Inert: these are workspace environments, not distributions (`package = false`, no
+# build-system), so nothing reads this number. The product version is `analysis/engine/
+# version.py` APP_VERSION — one place, deliberately, because six copies of a version is six
+# things to forget. It had already drifted eight milestones behind DESIGN once.
+version = "0.1.0"
+license = "MIT"
+description = "Arricchimento indicatori da threat intel esterna (Shodan/VirusTotal), egress-gated"
+requires-python = ">=3.10"
+# Solo stdlib (urllib/ipaddress) + mcp per il server. Nessuna SDK vendor.
+dependencies = [
+    "mcp>=1.0.0",
+]
+
+# OPZIONALE (come yara in analisi): public-suffix list per la difesa #24 — riconosce i FQDN il cui
+# TLD NON è un suffisso pubblico reale (es. dominio interno con TLD fittizio .corp/.acme) e li
+# tratta come dati del cliente (§9). tldextract usa uno snapshot bundled: nessuna rete (§15).
+# Senza l'extra, is_public ricade sulla sola lista TLD interni hardcoded.
+#   uv sync --extra psl
+[project.optional-dependencies]
+psl = ["tldextract>=5.0"]
+
+[tool.uv]
+package = false

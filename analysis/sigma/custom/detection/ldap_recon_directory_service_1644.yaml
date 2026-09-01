@@ -1,0 +1,59 @@
+title: AD Reconnaissance via LDAP — Domain Controller side (Event 1644)
+id: 7c2f1a4e-9b3d-4e6a-8f21-3d5c7a9e14b0
+status: experimental
+description: |
+    Detects Active Directory enumeration (SharpHound/BloodHound/PowerView) observed on the
+    DOMAIN CONTROLLER via NTDS General event 1644 in the Directory Service log. This complements
+    the community rule `win_ldap_recon` (SigmaHQ builtin/ldap), which sees the same activity on the
+    CLIENT side (Microsoft-Windows-LDAP-Client/Debug, EventID 30, ETW). The 1644 view fires even when
+    the collection runs from an unmanaged host without client ETW, because the DC logs the query it
+    services. Malicious LDAP filter substrings are reused verbatim from the verified community rule.
+
+    Requirements (server-side): set `HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics\
+    Field Engineering` = 5 on the DC, and lower the `Inefficient/Expensive Search Results Threshold`
+    (NTDS\Parameters) so recon queries cross the logging threshold. Source: Microsoft, "Use
+    Event1644Reader.ps1 to analyze LDAP query performance" (KB 3060643) — the 1644 fields are
+    `Filter` (the LDAP query) and `StartingNode` (base DN); the caller is the client IP.
+
+    status=experimental: field names are grounded on the Microsoft doc but NOT yet validated against
+    a real 1644 sample; confirm the EventData Data Name for `Filter` on a live DC before promoting.
+references:
+    - https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/event1644reader-analyze-ldap-query-performance
+    - https://techcommunity.microsoft.com/t5/microsoft-defender-for-endpoint/hunting-for-reconnaissance-activities-using-ldap-search-filters/ba-p/824726
+    - https://ipurple.team/2024/07/15/sharphound-detection/
+author: EventHound
+date: 2026/07/21
+modified: 2026/07/21
+tags:
+    - attack.discovery
+    - attack.t1087.002
+    - attack.t1069.002
+    - attack.t1482
+logsource:
+    product: windows
+    service: dsdb
+    definition: 'Requirements: NTDS Diagnostics "Field Engineering" = 5 on the domain controller; Directory Service log'
+detection:
+    selection:
+        Channel: 'Directory Service'
+        EventID: 1644
+    sharphound_filters:
+        Filter|contains:
+            - '(sAMAccountType=805306369)'
+            - '(sAMAccountType=805306368)'
+            - '(sAMAccountType=536870913)'
+            - '(sAMAccountType=536870912)'
+            - '(sAMAccountType=268435457)'
+            - '(sAMAccountType=268435456)'
+            - '(objectClass=trustedDomain)'
+            - '(objectCategory=nTDSDSA)'
+            - '(userAccountControl:1.2.840.113556.1.4.803:=524288)'
+            - '(userAccountControl:1.2.840.113556.1.4.803:=4194304)'
+            - '(userAccountControl:1.2.840.113556.1.4.803:=8192)'
+            - 'msDS-AllowedToActOnBehalfOfOtherIdentity'
+            - 'msDS-AllowedToDelegateTo'
+            - 'admincount=1'
+    condition: selection and sharphound_filters
+falsepositives:
+    - Directory-aware management/monitoring tools (Exchange, identity governance, vulnerability scanners) that legitimately enumerate these attributes — baseline the client IPs (Top_Callers) before alerting.
+level: medium
