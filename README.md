@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.9
+version: 1.10
 updated: 2026-09-11
 changelog:
+  - 1.10 (2026-09-11) — the maturity section stops reading as "never tested, don't trust": it states plainly that this is a proof of concept, tested lightly on lab cases (public datasets, synthetic captures, the simulated incident), with the Okta/osquery adapters named as the least-exercised. A leftover Troubleshooting entry about the removed on-box assistant is gone, and a garbled `install`/Hayabusa bullet is repaired.
   - 1.9 (2026-09-11) — publication sweep after the RAG/on-box-LLM removal of 2026-09-01. The clone command now names this repository (`EventHound-Blue` — the old `EventHound` repo is deleted); a new section documents the analysis MCP server (`analyze` / `analyze_case` / `eid_lookup`, §9 pseudonymization and the `_privacy` warning); and the two known-gaps clauses that still described the removed RAG are gone — the changelogs above keep the removal in the past tense, where it belongs.
   - 1.8 (2026-08-30) — the README as a document for someone who did not write it. New **Development and tests** (the one runner, the two per-clone setup steps, the per-suite commands, the `uv sync --extra` trap where naming one extra uninstalls the other, and the clean-clone check — `git clone`, not `git archive`, which has no `.git` and answers a different question) and **Troubleshooting** (port, no-reload GUI, GitHub rate limit, the two guards that are meant to be loud on a fresh clone, the memory refusal, the shared Ollama daemon, a source that produced nothing). Three claims corrected against the code rather than reread: "Three interchangeable surfaces" survived in "Using it" after the opening paragraph was rewritten to stop saying it; the Licence section still listed **vendor documentation** among the RAG material, removed on 2026-08-27; and `./setup.sh all` was presented as "and you're done" while leaving Qdrant empty — the RAG index is built by a separate step, from PDFs that are not in this repository, and that is now said where the promise is made rather than 200 lines below it. The demo's `--reset` default is documented (it is what stopped the README's own first command from failing on its second run). Left alone deliberately: "three adversarial rounds, all dirty, counter at zero" is correct — the roadmap entries 1.30-1.32 are the four scopes INSIDE the third round, not three more rounds.
   - 1.7 (2026-08-27) — CrowdStrike and SonicWall product documentation removed from the RAG (collections `cs_falcon_docs` and `sonicwall_docs` deleted, `docs/crowdstrike/` and `docs/sonicwall/` removed): both products are moving to a separate project built on their official MCP servers. The RAG keeps what grounds the analysis itself — frameworks, regulations, ACN. The CrowdStrike *ingest adapter* stays: it parses an export the analyst already holds, like every other artifact source.
@@ -318,10 +319,9 @@ and answers a different question.
   directly when you need another port.
 - **Edited Python and the GUI did not change.** The server does not reload:
   `./setup.sh down gui && ./setup.sh up gui`. Editing `static/index.html` only needs a browser reload.
-- **`install` could not fetch Hayabusa.** It says whether it was no network, a rate limit, or no asset matched.
-  network, GitHub's unauthenticated releases API rate-limiting you (60 requests an hour per address —
-  wait, or download the release yourself into `analysis/.tools/`), or a release whose assets no
-  longer match the expected name.
+- **`install` could not fetch Hayabusa.** It names the cause: no network, GitHub's unauthenticated
+  releases API rate-limiting you (60 requests an hour per address — wait, or download the release
+  yourself into `analysis/.tools/`), or a release whose assets no longer match the expected name.
 - **`install` ended with a FAILED list.** It prints a summary of what was installed, skipped and
   failed, and exits non-zero if anything failed — a half-installed system and a complete one used to
   end identically. `./setup.sh all` still starts what it has and still runs `doctor` afterwards: the
@@ -335,10 +335,6 @@ and answers a different question.
 - **The leak guard reports PARTIAL.** Also expected until `data/pseudonym-map.md` exists — with no
   map there are no identifiers to search for, and the guard says so rather than reporting a pass it
   did not earn.
-- **The assistant refuses to load a model.** It compares the model's size against free memory before
-  allocating, minus a reserve. Free memory, choose a smaller model in the Assistant's picker, or set
-  `EVENTHOUND_ALLOW_LOW_MEMORY=1` if you have judged the host yourself. `./setup.sh doctor` gives the
-  same verdict without starting anything.
 - **A source produced no records and no error.** Check the warnings line above the results: a missing
   tool now names itself and says what it costs. If Zeek is absent, PCAP analysis runs on tshark alone
   and the application layer is missing — that is reported, not silent.
@@ -369,11 +365,14 @@ things says it is not finished.
 
 What that means in practice, if you are deciding whether to point this at something that matters:
 
-- **Validated by use**: the EVTX → Hayabusa/Sigma path, PCAP, generic logs, the correlation, the
-  reports and the case model. The simulated incident (`engine.run_demo`) exercises nine sources end
-  to end from files on disk and is the closest thing here to an integration test.
-- **Written but never validated against a real export**: the **Okta** and **osquery** adapters say
-  so in their own docstrings. Do not trust them on a customer's data until someone has.
+- **Tested, lightly, on lab cases.** The EVTX → Hayabusa/Sigma path, PCAP, generic logs, the
+  correlation, the reports and the case model have all been run against lab inputs — the public
+  EVTX-ATTACK-SAMPLES set, deterministic synthetic captures, and the simulated incident
+  (`engine.run_demo`), which exercises nine sources end to end from files on disk. This is a proof
+  of concept, not a hardened product: some function may be incomplete, inaccurate, or broken in a
+  way no lab input has triggered.
+- **Least-exercised**: the **Okta** and **osquery** adapters were built against a documented schema
+  and synthetic fixtures rather than a real client export, and say so in their own docstrings.
 - **Not covered on a fresh clone**: the EVTX/Hayabusa, MFT and registry-hive tests all SKIP without
   the binaries and a sample, so a green suite proves the adapters and the demo — not the headline
   source. `-rs` shows you which.
