@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.11
+version: 1.12
 updated: 2026-09-11
 changelog:
+  - 1.12 (2026-09-11) — a realistic, literature-grounded sample intrusion is added alongside the correlation demo: `analysis/demo/generate_samples.py` writes a credential-theft/lateral-movement scenario mapped phase-by-phase to ATT&CK techniques, Event IDs and SigmaHQ rules, documented in `docs/samples.md` with screenshots in `docs/screenshots/`.
   - 1.11 (2026-09-11) — final release pass: the product version is v1.0.0 (`/api/health` and exported bundles report 1.0.0, matching the tag), and the demo is described as nine source types (the previous "ten" double-counted the two appliance logs).
   - 1.10 (2026-09-11) — the maturity section stops reading as "never tested, don't trust": it states plainly that this is a proof of concept, tested lightly on lab cases (public datasets, synthetic captures, the simulated incident), with the Okta/osquery adapters named as the least-exercised. A leftover Troubleshooting entry about the removed on-box assistant is gone, and a garbled `install`/Hayabusa bullet is repaired.
   - 1.9 (2026-09-11) — publication sweep after the RAG/on-box-LLM removal of 2026-09-01. The clone command now names this repository (`EventHound-Blue` — the old `EventHound` repo is deleted); a new section documents the analysis MCP server (`analyze` / `analyze_case` / `eid_lookup`, §9 pseudonymization and the `_privacy` warning); and the two known-gaps clauses that still described the removed RAG are gone — the changelogs above keep the removal in the past tense, where it belongs.
@@ -187,6 +188,10 @@ uv run python -m engine.run_demo --artifacts-only  # write the files, then load 
 uv run python -m engine.run_demo --format markdown --level summary   # any run_report format/level
 uv run python -m engine.run_demo --no-reset        # accumulate into the existing demo case
 ```
+
+A second, richer sample — a credential-theft and lateral-movement intrusion with each phase mapped
+to its ATT&CK technique, Event ID and Sigma rule, plus screenshots of the analysis — is documented
+in [`docs/samples.md`](docs/samples.md) (generator `analysis/demo/generate_samples.py`).
 
 The case is rebuilt from scratch on every run (`--reset`, the default): without that, a second run
 re-added the same nine sources to the same case and the store refused the batch, so the README's own
