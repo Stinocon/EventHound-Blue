@@ -1,4 +1,4 @@
-"""Test of EVTX → ATT&CK slice validation (mirror of RAG golden queries).
+"""Test of EVTX → ATT&CK slice validation.
 
 Declares, for a known EVTX dataset, the expected outcome and verifies the engine produces it.
 Here: the mimikatz sample from EVTX-ATTACK-SAMPLES must surface

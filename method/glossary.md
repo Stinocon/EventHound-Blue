@@ -1,12 +1,12 @@
 ---
 title: Cybersecurity glossary
-updated: 2026-07-20
-version: 0.2.1
+updated: 2026-09-11
+version: 0.2.2
 linked_files:
   - method/security-instructions.md
   - method/framework/INDEX.md
-  - rag/sources.yaml
 changelog:
+  - "0.2.2 — 2026-09-11 — `rag/sources.yaml` left `linked_files` after the RAG removal (2026-09-01)."
   - "0.1.0 — 2026-06-14 — initial draft, base entries."
   - "0.2.0 — 2026-06-14 — expansion across domains: IT/systems, networking, identity, cryptography, malware, attacks, OT/ICS, cloud, IR/forensics."
   - "0.2.1 — 2026-07-20 — English translation."

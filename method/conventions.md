@@ -1,13 +1,14 @@
 ---
 title: Conventions — the § rules the code refers to
-updated: 2026-07-24
-version: 1.1.0
+updated: 2026-09-11
+version: 1.2.0
 linked_files:
   - method/security-instructions.md
   - method/anonymization.md
   - docs/roadmap.md
   - README.md
 changelog:
+  - "1.2.0 (2026-09-11) — the RAG removal of 2026-09-01 is reflected in the rules that cited it: §6's source hierarchy reads the markdown knowledge base instead of 'the RAG (§14)'; §14 becomes 'The knowledge base is the primary source'; §15 becomes 'Web access: warn first' (the crawler it warned about was removed); §18 stops describing `rag/sources.yaml` and control queries."
   - "1.1.0 (2026-07-24) — §9 and §10 corrected where they overstated: versioned material counts as shared (a test fixture is not a draft), and check-leaks.sh matches the identifiers listed in the pseudonym map, so an unpopulated map leaves only the path check running. Both learned from a real detection that reached a versioned fixture under a green gate."
   - "1.0.0 (2026-07-23) — created: the numbered conventions cited across the codebase, extracted so the citations resolve inside the repo. The numbering is preserved from the project's internal governance document, which is not distributed."
 ---
@@ -41,8 +42,8 @@ side effect of something else.
 
 ## §6 Sources and traceability
 
-**Never state unvalidated technical data.** Source hierarchy: the RAG (§14) → the context files in
-`method/` and `docs/` → official online sources → own knowledge, and the last one is *always* marked
+**Never state unvalidated technical data.** Source hierarchy: the knowledge base in `method/` and
+`docs/` (§14) → official online sources → own knowledge, and the last one is *always* marked
 as hypothesis, to be verified, or to be tested in a controlled environment.
 
 Query and command syntax, detection logic, CVE details, ATT&CK mapping, product behavior and
@@ -119,20 +120,20 @@ that execution is the user's decision in their own authorized environment.
 Nothing here serves evasion, obfuscation, or offense: the context is defensive analysis and
 authorized incident response only.
 
-## §14 The RAG is the primary source
+## §14 The knowledge base is the primary source
 
-For technical, methodological, product or regulatory questions, query the RAG first (`rag_search`,
-or `pipeline.retrieve` from the CLI), then the rest of the hierarchy in §6. Ground the answer in
-what came back and cite it. If the RAG returns nothing relevant, say so — that is a coverage gap
-worth filling, not a reason to improvise.
+For technical, methodological or regulatory questions, read the markdown knowledge base first —
+`method/framework/` (ATT&CK notes), `method/normative/`, `method/acn/`, and the vendored
+`analysis/analytics/attack_map.json` for technique→tactic — then the rest of the hierarchy in §6.
+Ground the answer in what you read and cite it. If the knowledge base returns nothing relevant, say
+so — that is a coverage gap worth filling, not a reason to improvise.
 
-## §15 Crawling: warn first
+## §15 Web access: warn first
 
-Any web crawl (`pipeline.ingest` on a `type: web` source) exposes the machine's public IP and must
-be announced **before** it starts, so the user can enable a VPN. Local ingest (PDF, STIX, markdown),
-retrieval and evaluation are not crawling and need no warning. The crawler is configured to be
-polite: robots.txt respected, delay between requests, limited concurrency, identifying user-agent,
-capped depth.
+Any outbound web access beyond the explicit, egress-gated enrichment lookups (Shodan, VirusTotal,
+ThreatFox) exposes the machine's public IP and must be announced **before** it starts, so the user
+can enable a VPN. Local work (PDF, STIX, markdown, analysis) is not web access and needs no warning.
+Bulk crawling is out of scope: the crawler it once fed was removed with the RAG.
 
 ## §16 Workspace hygiene
 
@@ -155,5 +156,5 @@ same document type has been produced at least twice — before that it is premat
 ## §18 Adding a product
 
 Create `docs/<product>/INDEX.md` plus curated notes, obtain the official primary source (a vendor
-PDF beats crawling a portal), declare the sources in `rag/sources.yaml` with a dedicated collection,
-ingest the local sources and validate with control queries.
+PDF beats crawling a portal), and keep the distilled notes as markdown under the relevant `method/`
+index — read directly, with no ingestion pipeline to feed.

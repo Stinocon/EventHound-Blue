@@ -1,7 +1,7 @@
 """MCP server (stdio): maps an incident onto notification obligations (GDPR/NIS2/DORA).
 
 Local, deterministic logic (compliance.py). NOT legal advice: indicates what to check.
-Timelines must be confirmed against the official text (RAG: 'normative' collection).
+Timelines must be confirmed against the official text under `method/normative/`.
 """
 import sys
 

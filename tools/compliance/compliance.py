@@ -1,8 +1,8 @@
 """Compliance resolver: from incident attributes → applicable notification obligations.
 
 Separates the LOGIC (deterministic, golden-tested) from the LEGAL DATA (obligations.yaml, with
-citations and a `da_validare` flag). Timelines must be confirmed against the official text — the
-RAG contains GDPR/NIS2/DORA. NOT legal advice: it's triage support that indicates WHAT to check.
+citations and a `da_validare` flag). Timelines must be confirmed against the official text
+under `method/normative/`. NOT legal advice: it's triage support that indicates WHAT to check.
 
 Expected incident attributes (all optional, default false/None):
   personal_data_breach: bool        personal data breach (GDPR)
@@ -67,7 +67,7 @@ def summary(incident: dict) -> dict:
         "norms": norme,
         "most_urgent": urgent,
         "disclaimer": "Triage support, not legal advice. Timelines must be validated against the "
-                      "official text (RAG: 'normative' collection).",
+                      "official text under `method/normative/`.",
     }
 
 

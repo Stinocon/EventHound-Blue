@@ -1,8 +1,8 @@
 """Generator: official ATT&CK STIX bundle → `analytics/attack_map.json` (the engine's SOT).
 
 Run it only when the STIX bundle is refreshed — the produced JSON is versioned, the 51 MB bundle is
-not (it lives in the gitignored `rag/sources_raw/mitre/`, declared in `rag/sources.yaml` as the
-`mitre-attack-stix` source and already used to build the `knowledge_cyber` collection).
+not (it is fetched from the MITRE CTI GitHub release and kept gitignored under
+`analysis/.tools/stix/`, never committed).
 
     uv run python -m analytics.build_attack_map                  # default bundle path
     uv run python -m analytics.build_attack_map --stix <path>
@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_STIX = HERE.parents[1] / "rag" / "sources_raw" / "mitre" / "enterprise-attack.json"
+DEFAULT_STIX = HERE.parents[1] / ".tools" / "stix" / "enterprise-attack.json"
 OUT = HERE / "attack_map.json"
 
 
@@ -55,7 +55,7 @@ def build(stix_path: Path) -> dict:
         techniques[tid] = entry
 
     return {
-        "_source": "MITRE ATT&CK Enterprise, official STIX bundle (rag/sources.yaml: mitre-attack-stix)",
+        "_source": "MITRE ATT&CK Enterprise, official STIX bundle (github.com/mitre-attack/attack-stix-data)",
         "_attack_version": version,
         "_generated_by": "analytics/build_attack_map.py",
         "techniques": dict(sorted(techniques.items())),
@@ -71,7 +71,8 @@ def main(argv: list[str] | None = None) -> int:
     stix = Path(args.stix)
     if not stix.exists():
         print(f"STIX bundle not found: {stix}\n"
-              f"Fetch it into rag/sources_raw/mitre/ (see rag/sources.yaml, source mitre-attack-stix).")
+              f"Fetch the enterprise-attack.json STIX bundle from the MITRE CTI release\n"
+              f"(https://github.com/mitre-attack/attack-stix-data/releases) into analysis/.tools/stix/.")
         return 1
     data = build(stix)
     out = Path(args.out)

@@ -1,7 +1,7 @@
 ---
 title: EventHound — analysis and correlation engine
-updated: 2026-08-30
-version: 0.12.0
+updated: 2026-09-11
+version: 0.13.0
 related_files:
   - analysis/DESIGN.md
   - analysis/schema/common-schema.md
@@ -9,6 +9,7 @@ related_files:
   - docs/analysis/threat-hunting-evtx.md
   - docs/analysis/performance.md
 changelog:
+  - "0.13.0 — 2026-09-11 — RAG/LLM removal reflected in the body, not only the changelog: the Validation section no longer frames itself as a mirror of the RAG golden queries; the performance section drops the tool-call corpus (the removed `run_toolbench`/`eval/toolcall_prompts.json`); packaging names the single-image `eventhound` compose stack and the platform-neutral `uninstall.sh`."
   - "0.12.0 — 2026-08-30 — `--json-out PATH` is the canonical way to write JSON from the nine CLIs that took a path (`--json PATH` still works, deprecated, and says so once on stderr); `run_case new|add` reached seven of the eleven sources and now shares `run_report.add_source_args`, so MFT, osquery, CrowdStrike and YARA evidence can enter a persistent case from the CLI. Adapter failures report the tool's own message instead of the bare exception class, and a missing Zeek is stated rather than passed over."
   - "0.11.0 — 2026-07-24 — benchmarks documented (engine/run_bench.py + engine/run_toolbench.py + eval/toolcall_prompts.json): the pipeline profile, the tool-call corpus and where the measured figures live."
   - "0.10.0 — 2026-07-23 — testing story rewritten: pytest + coverage alongside script mode, real skips (tests/_helpers.skip_test) instead of silent passes, CLI smoke test, and the measured coverage figure."
@@ -25,9 +26,9 @@ changelog:
 
 # EventHound — analysis and correlation engine
 
-Component for **analysis on real client data**, complementary to the RAG:
-the engine *flags* (e.g. `T1558.003` on `HOST-01`), the RAG *explains*. Full design in
-`DESIGN.md`. This README records the **Phase 0 decisions** and the operational
+Component for **analysis on real client data**:
+the engine *flags* (e.g. `T1558.003` on `HOST-01`), the knowledge base under `method/` *explains*.
+Full design in `DESIGN.md`. This README records the **Phase 0 decisions** and the operational
 runbook (Phase 1 implemented).
 
 ## I have a … — where do I go
@@ -383,11 +384,10 @@ families and must *not* bridge them.
 runs it end to end. The expectations were written from the scenario before it was first run: an
 expectation copied off the output certifies what the code does, not what it should do.
 
-## Validation (mirror of RAG golden queries)
+## Validation
 
 Tests declare, for a known dataset, the expected outcome and verify that the engine
-produces it. Just as the RAG auto-eval validates the index, this validates the engine's
-*logic* when adding or modifying a rule/adapter.
+produces it — the engine's *logic* is pinned whenever a rule or adapter is added or modified.
 - `tests/test_evtx_slice.py` — mimikatz sample → `T1003.001` (skip if the EVTX dataset
   is not in `.tools/`).
 - `tests/test_pcap_slice.py` — deterministic synthetic PCAP (generated at runtime):
@@ -445,23 +445,18 @@ it a real chain gets split, above it unrelated activity merges into one episode.
 `tests/test_corpus_discriminates.py` guards the guard: it breaks one knob at a time and asserts the
 case protecting it turns red. A case that cannot be made to fail measures nothing.
 
-### Performance and model reliability
+### Performance
 
-The same argument applied to two things that were impressions: how the pipeline behaves on a large
-dataset, and how reliably the local model actually calls its tools.
+How the pipeline behaves on a large dataset, produced by a command rather than an impression.
 
 ```
 uv run python -m engine.run_bench --analytics       # per-stage profile (synthetic, offline)
 uv run python -m engine.run_bench --ingest          # real Hayabusa throughput on a local corpus
-uv run python -m engine.run_toolbench --repeat 3    # tool-call reliability (needs Ollama)
 ```
 
-`eval/toolcall_prompts.json` labels 20 prompts with the tool each one *must* trigger; the runner
-separates a model that answers from memory from one that **narrates** a call it never made — the
-defect the default model was changed for. The figures, the hardware they were measured on, and the
-three defects that measuring exposed are in
-[`docs/analysis/performance.md`](../docs/analysis/performance.md). Neither benchmark is in the
-default gate (`tools/check.sh --bench` runs the quick profile): they report, they do not assert, and
+The figures, the hardware they were measured on, and the three defects that measuring exposed are
+in [`docs/analysis/performance.md`](../docs/analysis/performance.md). The benchmark is not in the
+default gate (`tools/check.sh --bench` runs the quick profile): it reports, it does not assert, and
 a timing threshold would only encode the speed of the machine that wrote it.
 
 ## Other components (2026-06-21, extended 2026-07-21)
@@ -482,9 +477,8 @@ a timing threshold would only encode the speed of the machine that wrote it.
   tested (`tests/test_mft.py`); GUI availability is health-checked but not yet wired to a
   dedicated analysis endpoint.
 - **Packaging**: native-first — `../setup.sh` installs the binaries into `.tools/` and runs the
-  stack on the host (Metal-accelerated LLM, no VM RAM cap); `../uninstall-macos.sh` removes it.
-  Docker stays for reproducible / non-macOS deployments: root `docker-compose.yml` (`qdrant` +
-  `rag-api` + `ollama` + `eventhound`) builds a self-contained image
+  stack on the host; `../uninstall.sh` removes it. Docker stays for reproducible / non-macOS
+  deployments: the root `docker-compose.yml` builds a single self-contained `eventhound` image
   (`analysis/eventhound.Dockerfile`, `python:3.12-slim-trixie`) with Hayabusa/tshark/Zeek/`dotnet` +
   EZ-tools baked in. Code is baked in (no volume mount): rebuild the image to pick up changes.
 

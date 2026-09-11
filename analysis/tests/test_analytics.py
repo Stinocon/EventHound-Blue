@@ -1,6 +1,6 @@
 """Test Phase 2: long-tail recipes + correlation on synthetic records (no Hayabusa/tshark).
 
-Targets signals, like golden_queries for the RAG: a carefully constructed dataset must surface
+Targets signals: a carefully constructed dataset must surface
 process stacking, rare parent-child pair, rare DNS, non-standard port, regular beaconing and
 cross-source indicator. Execution: uv run python tests/test_analytics.py
 """

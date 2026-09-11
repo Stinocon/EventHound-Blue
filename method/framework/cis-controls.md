@@ -12,8 +12,8 @@ changelog:
 
 # CIS Controls
 
-> Provenance: CIS Controls are **not** present in the `knowledge_cyber`
-> collection (only generic references to "critical controls" in ISC2 material).
+> Provenance: CIS Controls are **not** present in the local knowledge base
+> (only generic references to "critical controls" in ISC2 material).
 > The content below is the framework standard: **validate on
 > `cisecurity.org`** before citing it as certain (rule §6 in `method/conventions.md`).
 

@@ -13,7 +13,7 @@ changelog:
 # Cyber Kill Chain (Lockheed Martin)
 
 > Provenance: the Lockheed Martin Cyber Kill Chain is **not** present as
-> direct content in the `knowledge_cyber` collection (the RAG provides MITRE
+> direct content in the local knowledge base (which provides MITRE
 > tactics/phases). The content below is the model standard: **validate on
 > Lockheed Martin source** before citing it as certain (rule §6 in `method/conventions.md`).
 

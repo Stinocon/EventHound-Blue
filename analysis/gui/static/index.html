@@ -111,32 +111,6 @@
     width:100%; max-width:900px;
     margin:0 auto; padding:0 8px;
   }
-  /* ── Assistant (on-box AI) ── */
-  .ai-notice { background:var(--accent-soft); border:1px solid var(--line); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:12px; font-size:var(--fs-sm); color:var(--fg-dim); }
-  .ai-notice.warn { background:rgba(255,180,60,.12); }
-  /* Chat panel: frames the conversation + composer as one professional unit */
-  .ai-panel { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); overflow:hidden; }
-  .ai-messages { display:flex; flex-direction:column; gap:12px; padding:18px; min-height:300px; max-height:52vh; overflow-y:auto; }
-  .ai-msg { max-width:80%; padding:11px 14px; border-radius:12px; font-size:var(--fs-md); line-height:1.55; white-space:pre-wrap; word-wrap:break-word; }
-  .ai-msg.user { align-self:flex-end; background:var(--accent-soft); border:1px solid var(--line); border-bottom-right-radius:4px; }
-  .ai-msg.bot { align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); border-bottom-left-radius:4px; }
-  .ai-msg .ai-tools { font-size:var(--fs-xs); color:var(--muted); font-family:ui-monospace,monospace; margin-bottom:6px; white-space:pre-wrap; }
-  .ai-msg .ai-answer code { font-family:ui-monospace,monospace; }
-  .ai-msg pre { background:var(--bg-2); border:1px solid var(--line); border-radius:6px; padding:10px; overflow-x:auto; font-size:var(--fs-sm); }
-  .ai-empty { color:var(--muted); font-size:var(--fs-sm); text-align:center; padding:32px 24px; margin:auto; max-width:420px; line-height:1.6; }
-  /* Composer: docked at the panel bottom, controls above the input line */
-  .ai-composer { border-top:1px solid var(--line); background:var(--panel-2); padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
-  .ai-composer-tools { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
-  .ai-composer-input { display:flex; align-items:flex-end; gap:10px; }
-  .ai-composer-input textarea { flex:1; min-width:0; resize:none; background:var(--panel); border:1px solid var(--line); border-radius:8px; color:var(--fg); padding:10px 12px; font:inherit; line-height:1.5; }
-  .ai-composer-input textarea:focus { outline:none; border-color:var(--accent); }
-  .ai-send-btn { padding:10px 22px; flex:none; }
-  .ai-ctx { font-size:var(--fs-xs); color:var(--muted); display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
-  .ai-model-select { padding:5px 10px; background:var(--panel); border:1px solid var(--line); border-radius:6px; color:var(--fg); font-size:var(--fs-xs); }
-  .ai-model-note { font-size:var(--fs-2xs); color:var(--muted); flex:1 1 100%; }
-  .ai-model-note.warn { color:var(--danger); }
-  .ai-btn { cursor:pointer; font-size:var(--fs-2xs); padding:3px 9px; border:1px solid var(--line); border-radius:6px; background:var(--panel-2); color:var(--accent-2); display:inline-flex; align-items:center; gap:4px; }
-  .ai-btn:hover { border-color:var(--accent); color:var(--fg); }
   .dash-hero { text-align:center; margin:20px 0 16px; }
   .dash-hero h1 { margin:0; font-size:var(--fs-3xl); font-weight:700; }
   .dash-subtitle { color:var(--muted); font-size:var(--fs-sm); margin:4px 0 14px; }
@@ -293,7 +267,7 @@
   .reg-stat .n { font-size:var(--fs-2xl); font-weight:700; }
   .reg-stat .l { color:var(--muted); font-size:var(--fs-2xs); margin-top:2px; }
 
-  /* ── RAG view ── */
+  /* ── Cases view (form + cards) ── */
   .rag-search { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:flex-end; }
   .rag-search .rsi { display:flex; flex-direction:column; gap:4px; }
   .rag-search label { font-size:var(--fs-2xs); color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
@@ -825,7 +799,7 @@
         <h2><span class="h2ic" data-ic="settings"></span> Settings</h2>
         <span class="vh-sub">System status and configuration</span>
       </div>
-      <div class="view-desc">Tool availability, RAG connectivity, and version information.</div>
+      <div class="view-desc">Tool availability and version information.</div>
       <div id="settings-content"></div>
     </div>
 
@@ -1051,235 +1025,6 @@ function renderToolNotices() {
     const lbl = full.closest('label');
     if (lbl) lbl.title = 'EvtxECmd (or dotnet) is not installed';
   }
-}
-
-// ─── Assistant (on-box AI, DESIGN §14) ───
-let aiInited = false;
-function aiInputKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
-}
-function initAssistant() {
-  const msgs = document.getElementById('ai-messages');
-  if (!aiInited) {
-    aiInited = true;
-    if (!msgs.children.length)
-      msgs.innerHTML = '<div class="ai-empty">Ask a question to start. The assistant grounds answers in the RAG and can reason over your current analysis.</div>';
-    // A named function, not a fresh arrow each time: `resetSession()` clears `aiInited`, so this
-    // block re-runs, and a new closure per reset accumulated — after N resets Enter sent N copies
-    // of the message. Same reference, so the DOM discards the duplicate registration.
-    document.getElementById('ai-input').addEventListener('keydown', aiInputKeydown);
-    loadAiModels();
-    document.getElementById('ai-model').addEventListener('change', aiSaveModel);
-  }
-  document.getElementById('ai-use-context').disabled = !lastResult;  // gate on a loaded analysis
-  aiCheckAvailable();
-}
-
-// Say it on arrival, not on the first message. The picker cannot carry this: /api/ai/models lists
-// the configured model whether or not Ollama answers, so the view looked healthy until you typed
-// and got a red line back. /api/services asks the one question — `unusable_reason`, the same
-// answer the CLI and the chat endpoint use — and covers the third state the picker never had: a
-// model that is pulled and still will not fit on this host.
-async function aiCheckAvailable() {
-  const msgs = document.getElementById('ai-messages');
-  const input = document.getElementById('ai-input');
-  const send = document.getElementById('ai-send');
-  let svc;
-  try {
-    svc = (await (await fetch('/api/services')).json()).ollama;
-  } catch { return; }          // the probe itself failed: say nothing rather than something wrong
-  const down = svc && svc.state !== 'up';
-  if (input) input.disabled = down;
-  if (send) send.disabled = down;
-  const existing = document.getElementById('ai-unavailable');
-  if (existing) existing.remove();
-  if (!down) return;
-  const box = el('div', {id:'ai-unavailable', class:'state error'});
-  box.append(el('div', {}, 'The assistant is unavailable: ' + (svc.detail || 'Ollama did not answer')));
-  box.append(el('div', {style:'margin-top:6px;color:var(--muted)'},
-                'Everything else works without it — ingest, correlation, the map, reports and the '
-                + 'RAG panel. Start it with ./setup.sh up ollama.'));
-  msgs.prepend(box);
-}
-
-// The picker is the PERSISTENT model setting, not a per-request override: changing it writes
-// `llm_model` to the shared store, so the CLI and the MCP tools talk to the same model, and the
-// choice survives a reload. The note under it carries the host verdict, because the answer for a
-// large model on a small machine is a refusal and the moment to learn that is at the choice.
-async function loadAiModels() {
-  const sel = document.getElementById('ai-model');
-  const note = document.getElementById('ai-model-note');
-  try {
-    const j = await (await fetch('/api/ai/models')).json();
-    const models = j.models || [];
-    const chosen = j.selected || '';
-    // Built as NODES, not as an interpolated string. `aiEscape` serialises through textContent,
-    // which escapes < > &  and NOT the double quote — safe everywhere else in this file, because
-    // every other call is text content, and unsafe here, which was the only attribute-context use
-    // of it: a stored name containing `"` broke out of value= and truncated the option's value.
-    sel.replaceChildren(...(models.length ? models : [chosen || 'default']).map(m => {
-      const o = document.createElement('option');
-      o.value = models.length ? m : '';
-      o.textContent = m;
-      o.selected = m === chosen;
-      return o;
-    }));
-    sel.disabled = !!j.pinned_by_env;
-    if (!models.length) return;
-    if (note) {
-      note.className = 'ai-model-note';
-      note.textContent = j.pinned_by_env
-        ? 'EVENTHOUND_LLM_MODEL is set in the environment and overrides this choice.'
-        : 'Saved for the CLI too. Other models: pull them first (ollama pull <name>).';
-    }
-  } catch { sel.innerHTML = '<option value="">default</option>'; }
-}
-
-async function aiSaveModel() {
-  const sel = document.getElementById('ai-model');
-  const note = document.getElementById('ai-model-note');
-  if (!sel || !note) return;
-  note.className = 'ai-model-note';
-  note.textContent = 'Checking this host…';
-  try {
-    const r = await fetch('/api/ai/model', {method:'POST', headers:{'Content-Type':'application/json'},
-                                            body: JSON.stringify({model: sel.value})});
-    const j = await r.json();
-    if (j.error) { note.className = 'ai-model-note warn'; note.textContent = j.error; return; }
-    note.className = 'ai-model-note' + (j.state === 'refuse' || j.state === 'missing' ? ' warn' : '');
-    note.textContent = j.message || '';
-  } catch (e) {
-    note.className = 'ai-model-note warn';
-    note.textContent = 'Could not save the model choice: ' + e;
-  }
-}
-
-// Deliberately NOT sent with each request any more. The picker persists the choice server-side,
-// so pinning it per request only meant an open tab kept sending a name that a CLI change (or a
-// second tab) had already replaced — the setting was one-directional. The `model` field stays on
-// the endpoints for tests and one-off overrides.
-function aiSelectedModel() { return undefined; }
-
-function aiEscape(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
-
-// Minimal, SAFE rendering: fenced code blocks + inline code; everything else escaped (untrusted model output).
-function aiRender(text) {
-  return String(text || '').split(/```/).map((p, i) =>
-    i % 2 === 1 ? '<pre>' + aiEscape(p.replace(/^\w*\n/, '')) + '</pre>'
-                : aiEscape(p).replace(/`([^`]+)`/g, '<code>$1</code>')
-  ).join('');
-}
-
-// Shared SSE consumer for /api/ai/* (POST → EventSource can't be used).
-async function aiStream(url, payload, h) {
-  let res;
-  try { res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}); }
-  catch (e) { h.onError && h.onError({error: 'network error: ' + e}); return; }
-  if (!res.ok) { let t=''; try { t = await res.text(); } catch {} h.onError && h.onError({error: 'HTTP ' + res.status + ' ' + t}); return; }
-  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
-  while (true) {
-    const {done, value} = await reader.read(); if (done) break;
-    buf += dec.decode(value, {stream:true});
-    let idx;
-    while ((idx = buf.indexOf('\n\n')) >= 0) {
-      const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
-      let ev = null, data = '';
-      for (const line of chunk.split('\n')) {
-        if (line.startsWith('event:')) ev = line.slice(6).trim();
-        else if (line.startsWith('data:')) data += line.slice(5).replace(/^ /, '');
-      }
-      if (!ev) continue;
-      let d = {}; try { d = JSON.parse(data); } catch {}
-      const fn = h['on' + ev.charAt(0).toUpperCase() + ev.slice(1)];
-      if (fn) fn(d);
-    }
-  }
-}
-
-function aiAppend(cls, html) {
-  const msgs = document.getElementById('ai-messages');
-  const empty = msgs.querySelector('.ai-empty'); if (empty) empty.remove();
-  const div = document.createElement('div'); div.className = 'ai-msg ' + cls; div.innerHTML = html;
-  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight; return div;
-}
-
-// Stream one turn into a fresh bot bubble. `url` = /api/ai/chat or /api/ai/explain.
-async function aiConverse(url, payload) {
-  const bot = aiAppend('bot', '<div class="ai-tools"></div><div class="ai-answer">…</div>');
-  const toolsEl = bot.querySelector('.ai-tools'); const ansEl = bot.querySelector('.ai-answer');
-  const tools = []; let streamed = '';
-  await aiStream(url, payload, {
-    onToken(d) {
-      streamed += (d.text || '');
-      ansEl.textContent = streamed;  // live plain-text (safe); replaced by rendered final on complete
-      document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
-    },
-    onStart(d) {
-      const notice = document.getElementById('ai-notice');
-      if (d.redaction_active === false) {
-        notice.className = 'ai-notice warn'; notice.style.display = 'block';
-        notice.textContent = 'Pseudonym map empty — real identifiers are NOT pseudonymized before the local model (§9). Data still stays on-box.';
-      } else if (d.redaction_active) {
-        notice.className = 'ai-notice'; notice.style.display = 'block';
-        notice.textContent = 'Anonymization active: identifiers pseudonymized before the model (§9). Model: ' + (d.model || '') + '.';
-      }
-    },
-    onTool(d) {
-      if (d.kind === 'tool_call') { tools.push('→ ' + d.name + '(' + JSON.stringify(d.arguments || {}) + ')'); toolsEl.textContent = tools.join('\n'); }
-    },
-    onComplete(d) {
-      ansEl.innerHTML = aiRender(d.answer || streamed || '(no answer)')  // final replaces the live stream
-        + (d.truncated ? '<div class="ai-tools" style="margin-top:6px">[tool-call cap reached; answer may be partial]</div>' : '');
-      document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
-    },
-    onError(d) {
-      ansEl.innerHTML = '<span style="color:var(--err)">' + aiEscape(d.error || 'error') + '</span>'
-        + (d.unavailable ? '<div class="ai-tools" style="margin-top:6px">Start Ollama and pull the model to enable the assistant.</div>' : '');
-    },
-  });
-}
-
-function sendAiMessage() {
-  const input = document.getElementById('ai-input');
-  const q = (input.value || '').trim(); if (!q) return;
-  input.value = '';
-  aiAppend('user', aiEscape(q));
-  const payload = { question: q };
-  if (document.getElementById('ai-use-context').checked && lastResult) payload.context = lastResult;
-  const m = aiSelectedModel(); if (m) payload.model = m;
-  aiConverse('/api/ai/chat', payload);
-}
-
-// Per-function "AI button" (step 5): hand a function's output to the engine, open the chat.
-function aiExplain(fn, output) {
-  showView('assistant');
-  aiAppend('user', 'Explain: ' + aiEscape(fn));
-  const payload = { function: fn, output: output };
-  const m = aiSelectedModel(); if (m) payload.model = m;
-  aiConverse('/api/ai/explain', payload);
-}
-// A small reusable button that calls aiExplain with a lazily-computed payload.
-function aiButton(fn, getOutput) {
-  const b = el('button', {class:'ai-btn', title:'Interpret with the on-box AI'}, 'AI');
-  b.onclick = () => aiExplain(fn, typeof getOutput === 'function' ? getOutput() : getOutput);
-  return b;
-}
-// A right-aligned bar holding an AI button, prepended above a result table.
-function aiBar(fn, output) {
-  return el('div', {style:'display:flex;justify-content:flex-end;margin-bottom:8px'}, aiButton(fn, output));
-}
-// Named explain entry points wired from inline onclick in HTML-string panels.
-function aiExplainOverview() { if (lastResult) aiExplain('analysis overview', lastResult); }
-function aiExplainCorrelation() {
-  if (!lastResult) return;
-  aiExplain('cross-source correlation', {
-    summary: lastResult.summary, episodes: lastResult.episodes,
-    shared_indicators: lastResult.shared_indicators, host_overview: lastResult.host_overview,
-  });
-}
-function aiExplainThor() {
-  const f = lastResult?.thor_findings; if (!f || !f.length) return;
-  aiExplain('THOR findings', f.slice(0, 50));
 }
 
 // ─── Shared state components (empty / loading / error) — one visual language ───
@@ -1606,8 +1351,6 @@ function renderDashboard() {
       <div class="dash-stat"><div class="n">${(s.results.episodes || []).length}</div><div class="l">Episodes</div></div>
     </div>`;
 
-    html += `<div style="text-align:center;margin:2px 0 14px"><button class="ai-btn" onclick="aiExplainOverview()">AI &middot; explain this analysis</button></div>`;
-
     // Source summary card
     html += `<div class="dash-card" id="dash-source-summary"><h3>Source Summary</h3>${renderSourceSummary()}</div>`;
 
@@ -1651,8 +1394,7 @@ function renderThorCard() {
   if (!f.length) return '';
   const bySev = { high:0, medium:0, low:0 };
   f.forEach(r => { const s = r['ioc.severity']; if (s in bySev) bySev[s]++; });
-  let html = '<div class="dash-card"><h3>THOR findings '
-    + '<button class="ai-btn" onclick="aiExplainThor()">AI</button></h3>';
+  let html = '<div class="dash-card"><h3>THOR findings</h3>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
   html += `<span class="pill">${f.length} findings</span>`;
   if (bySev.high)   html += `<span class="pill bad">${bySev.high} high</span>`;
@@ -1688,8 +1430,7 @@ function renderKillchainCard() {
   if (!kc.length && !hosts.length) return '';
   const seen = {}; kc.forEach(p => seen[p.phase] = p);
   const deepest = kc.length ? kc[kc.length - 1] : null;
-  let html = '<div class="dash-card"><h3>Kill-chain progression '
-    + '<button class="ai-btn" onclick="aiExplainKillchain()">AI</button></h3>';
+  let html = '<div class="dash-card"><h3>Kill-chain progression</h3>';
   html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
   KC_PHASES.forEach(name => {
     const p = seen[name];
@@ -1730,14 +1471,6 @@ function renderKillchainCard() {
   return html;
 }
 
-function aiExplainKillchain() {
-  const d = session.results; if (!d) return;
-  aiExplain('kill-chain progression', {
-    killchain: d.killchain, host_killchain: d.host_killchain,
-    technique_catalog: (d.technique_catalog || []).slice(0, 25),
-  });
-}
-
 // ─── Correlation highlights (HTML string for Dashboard) ───
 function renderCorrelationHighlights() {
   const d = session.results;
@@ -1745,7 +1478,7 @@ function renderCorrelationHighlights() {
   const eps = (d.episodes||[]).filter(e => e.families > 1);
   const inds = (d.shared_indicators||[]).filter(i => i.families > 1);
   const clusters = (d.incident_clusters||[]);
-  let html = '<div class="dash-card"><h3>Correlation Highlights <button class="ai-btn" onclick="aiExplainCorrelation()">AI</button></h3>';
+  let html = '<div class="dash-card"><h3>Correlation Highlights</h3>';
   if (!eps.length && !inds.length && !clusters.length) {
     html += '<p style="color:var(--muted);font-size:var(--fs-sm);margin:0">No cross-source correlation: episodes and indicators remain on a single source family.</p>';
   } else {
@@ -1922,8 +1655,6 @@ function resetSession() {
   const hbStatus = document.getElementById('hb-status'); if (hbStatus) hbStatus.textContent = '';
   const ioc = document.getElementById('ioc-results'); if (ioc) ioc.innerHTML = '';
   const casesStatus = document.getElementById('cases-status'); if (casesStatus) casesStatus.textContent = '';
-  const aiMsgs = document.getElementById('ai-messages'); if (aiMsgs) aiMsgs.innerHTML = '';
-  aiInited = false;   // so initAssistant() rebuilds the empty-state placeholder on next visit
   document.getElementById('evtx-fullstream').checked = false;
   updateFileCounts();
   renderCaseBar();
@@ -2554,10 +2285,6 @@ function renderThorFindings() {
   // look identical without this, and the second one is the one that needs acting on.
   const thorWarn = uiWarningsEl(session.results?._meta); if (thorWarn) out.append(thorWarn);
   if (!findings.length) { out.append(uiEmptyEl('no THOR findings')); return; }
-  // aiButton() returns a DOM element (see the other call sites: aiBar/hbRenderTable append it),
-  // never a string — concatenating it into the head HTML would stringify it to "[object
-  // HTMLDivElement]" instead of rendering a button. Build the head without it, then append the
-  // real node once the head/table markup is in the DOM.
   const head = `<div class="tbar"><strong>${findings.length}</strong>&nbsp;findings&nbsp;</div>`;
   const rows = findings.slice(0, 500).map(r => {
     const sev = r['ioc.severity'] || '';
@@ -2576,8 +2303,6 @@ function renderThorFindings() {
     + '<table><thead><tr><th style="text-align:right">score</th><th>severity</th><th>file</th>'
     + '<th>matched IOC/rule</th><th>reason</th><th>sha256</th></tr></thead>'
     + `<tbody>${rows}</tbody></table>` + more;
-  const bar = out.querySelector('.tbar');
-  if (bar) bar.appendChild(aiButton('THOR findings', () => session.results?.thor_findings));
 }
 
 // Fill the source/why dropdowns from the values actually present, keeping the current
@@ -2837,7 +2562,6 @@ function hbRenderTable(rows, cols) {
   const out = document.getElementById('hb-results');
   out.innerHTML = '';
   if (!rows || !rows.length) { out.append(el('div', {class:'empty'}, 'no results')); return; }
-  out.appendChild(aiBar('Hayabusa results', rows));
   out.appendChild(table(rows, cols));
 }
 
@@ -2847,7 +2571,6 @@ function hbAutoTable(rows) {
   out.innerHTML = '';
   const keys = [];
   rows.slice(0, 20).forEach(r => Object.keys(r).forEach(k => { if (!keys.includes(k)) keys.push(k); }));
-  if (rows && rows.length) out.appendChild(aiBar('Hayabusa results', rows));
   out.appendChild(table(rows, keys.map(k => ({k, label:k}))));
 }
 
@@ -2962,7 +2685,6 @@ function renderReportView() {
     if (d.zeek_ssl && d.zeek_ssl.length) sections.push('SSL (Zeek)');
     if (d.zeek_dns_detail && d.zeek_dns_detail.length) sections.push('DNS (Zeek)');
     if (sections.length) preview.append(el('div',{style:'font-size:var(--fs-2xs);color:var(--muted);margin-top:4px;'}, 'Sections: ' + sections.join(' · ')));
-    preview.append(el('div',{style:'margin-top:12px'}, aiButton('analysis report', () => session.results)));
   } else {
     info.textContent = session.registryResults
       ? `Registry data only: ${session.registryResults.asep_count||0} ASEP entries. Main analysis data not available.`
@@ -3437,11 +3159,9 @@ async function renderApiKeys() {
     body.append(row);
   });
   // Outbound lookups stay opt-in even once a key is stored (§7/§15): the key enables the service,
-  // this switch is what actually lets traffic leave. It is also what decides whether the Assistant
-  // is offered the enrichment tool at all — until now the browser never sent `enrich`, so from the
-  // GUI this control changed nothing and only the CLI and the MCP clients could reach a lookup.
-  // The server reads the stored setting instead (app.py `_enrich_requested`), and the tool re-reads
-  // it before any request leaves the machine, so this is one switch with one meaning.
+  // this switch is what actually lets traffic leave. The server reads the stored setting (app.py
+  // `_enrich_requested`), and the tool re-reads it before any request leaves the machine, so this
+  // is one switch with one meaning.
   const egressRow = el('div',{style:'display:flex;gap:8px;align-items:center;padding:10px 0 2px;border-top:1px solid var(--line)'});
   const cb = el('input',{type:'checkbox'});
   cb.checked = !!cfg.settings.allow_egress;
@@ -3450,7 +3170,7 @@ async function renderApiKeys() {
                                 body: JSON.stringify({setting:'allow_egress', value: cb.checked})});
   };
   const lbl = el('label',{style:'font-size:var(--fs-sm);display:flex;gap:8px;align-items:center;cursor:pointer'});
-  lbl.append(cb, document.createTextNode('Allow outbound threat-intel lookups — Shodan / VirusTotal / ThreatFox, public indicators only, never client data. Also gives the Assistant its enrichment tool.'));
+  lbl.append(cb, document.createTextNode('Allow outbound threat-intel lookups — Shodan / VirusTotal / ThreatFox, public indicators only, never client data.'));
   egressRow.append(lbl);
   body.append(egressRow);
   body.append(el('div',{style:'font-size:var(--fs-2xs);color:var(--muted);margin-top:8px'},
@@ -3522,10 +3242,6 @@ function renderHelp() {
     '<h2>Tools</h2>',
     '<h3>Decode</h3>',
     '<p>Paste encoded text (Base64, hex, URL, ROT13, XOR, Unicode) and decode it instantly. No external services — everything runs locally.</p>',
-    '<h3>RAG (Knowledge Base)</h3>',
-    '<p>Search the cybersecurity knowledge base: MITRE ATT&CK (full Enterprise matrix), the GDPR, NIS2 and DORA texts, and ACN guidance. NIST, SANS and ISC2 are configured but not yet indexed.</p>',
-    '<h3>Assistant</h3>',
-    '<p>The on-box conversational engine (Ollama, fully local). It reasons over analysis the deterministic engine has <em>already</em> produced and grounds itself in the RAG; it never parses evidence itself and never computes a security score by hand — it calls the scoring oracle. Everything it is sent passes an anonymization gate first. Needs a model pulled locally; without one the view says so.</p>',
     // ─── Section: System ───
     '<h2>Settings — API keys and local configuration</h2>',
     '<p>Third-party services (VirusTotal, ThreatFox, Shodan) need an API key. Enter it once in <strong>Settings</strong>: it is written to the project’s private, gitignored config file with 0600 permissions, so it survives restarts and is shared with the command line — <code>python tools/eventhound_config.py list</code> shows the same state, and a key set from the CLI shows up here. Keys are never displayed again, only their last four characters.</p>',

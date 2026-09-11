@@ -1,13 +1,13 @@
 ---
 title: Regulations and compliance — index
-updated: 2026-07-21
-version: 0.2.2
+updated: 2026-09-11
+version: 0.2.3
 linked_files:
   - method/conventions.md
-  - rag/sources.yaml
   - method/fonti/riferimenti.md
   - method/normative/obligations-map.md
 changelog:
+  - "0.2.3 — 2026-09-11 — `rag/sources.yaml` left `linked_files` after the RAG removal (2026-09-01); the knowledge is markdown, read directly."
   - "0.1.0 — 2026-06-14 — placeholder; NIS2 and GDPR, curated notes to populate. Normative RAG setup."
   - "0.2.0 — 2026-06-21 — DORA added (Reg. EU 2022/2554): official PDF indexed in normative collection; row in areas table."
   - "0.2.1 — 2026-07-20 — English translation."

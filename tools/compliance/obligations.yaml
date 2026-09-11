@@ -1,7 +1,7 @@
 # obligations.yaml — regole di mappatura incidente → obblighi di notifica (GDPR/NIS2/DORA).
 #
 # DATO, non codice: ogni regola cita l'articolo e porta `da_validare: true`. Le tempistiche
-# vanno CONFERMATE sul testo ufficiale (il RAG contiene GDPR/NIS2/DORA: interrogarlo) — alcune
+# vanno CONFERMATE sul testo ufficiale (sotto `method/normative/`) — alcune
 # (es. DORA) sono dettagliate da RTS/ITS e qui sono indicative. NON è consulenza legale.
 #
 # trigger: condizioni sugli attributi dell'incidente (vedi compliance.py). Valore scalare =

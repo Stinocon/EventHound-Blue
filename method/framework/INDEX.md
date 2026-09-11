@@ -17,7 +17,7 @@ Curated notes on reference frameworks of "good practice" in cybersecurity. Each 
 
 | framework | purpose | status |
 |-----------|---------|--------|
-| **MITRE ATT&CK** | Taxonomy of adversary tactics and techniques (ID `Txxxx`). Reference for mapping observed behaviors. → [mitre-attack.md](mitre-attack.md) | draft (sourced from RAG) |
+| **MITRE ATT&CK** | Taxonomy of adversary tactics and techniques (ID `Txxxx`). Reference for mapping observed behaviors. → [mitre-attack.md](mitre-attack.md) | draft (cross-checked against the vendored ATT&CK map) |
 | **SANS** | Reference material and methodologies (Incident Response, threat hunting, forensics). 6-phase IR process (PICERL). → [sans-ir.md](sans-ir.md) | draft (to validate) |
 | **NIST** | NIST CSF (Identify/Protect/Detect/Respond/Recover) and SP 800-61 (Computer Security Incident Handling). → [nist.md](nist.md) | draft (to validate) |
 | **CIS Controls** | Prioritized controls for hardening and attack surface reduction. → [cis-controls.md](cis-controls.md) | draft (to validate) |

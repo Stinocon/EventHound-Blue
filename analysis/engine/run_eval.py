@@ -1,6 +1,6 @@
 """Evaluate the correlation engine against a labelled corpus (eval/correlation_corpus.json).
 
-The RAG has golden queries; correlation had nothing equivalent, so every adjustment to the
+The correlation engine had no golden tests of its own, so every adjustment to the
 confidence weights, the beaconing threshold or the episode session-gap was an act of faith. This
 turns those knobs into measurements: each case declares records in the common schema and what the
 engine MUST conclude from them, and this runner reports what holds and what does not.

@@ -13,9 +13,9 @@ changelog:
 
 # NIST — CSF and SP 800-61
 
-> Provenance: the `knowledge_cyber` collection indexes NIST CSRC (glossary, SP
-> 800, publications), but the precise structure of CSF and SP 800-61 does
-> **not** emerge as structured text from local excerpts. The contents below are
+> Provenance: NIST CSRC (glossary, SP 800, publications) is referenced, but the
+> precise structure of CSF and SP 800-61 does **not** emerge as structured text
+> from local notes. The contents below are
 > the framework standard: **validate on `csrc.nist.gov`** before citing them as
 > certain (rule §6 in `method/conventions.md`).
 

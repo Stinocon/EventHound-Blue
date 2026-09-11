@@ -1,5 +1,5 @@
 {
-  "_source": "MITRE ATT&CK Enterprise, official STIX bundle (rag/sources.yaml: mitre-attack-stix)",
+  "_source": "MITRE ATT&CK Enterprise, official STIX bundle (github.com/mitre-attack/attack-stix-data)",
   "_attack_version": "19.1",
   "_copyright": "© 2026 The MITRE Corporation. This work is reproduced and distributed with the permission of The MITRE Corporation. ATT&CK terms of use: https://attack.mitre.org/resources/legal-and-branding/terms-of-use/",
   "_generated_by": "analytics/build_attack_map.py",

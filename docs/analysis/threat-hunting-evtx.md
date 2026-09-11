@@ -1,13 +1,14 @@
 ---
 title: Threat hunting on Windows Event Logs — EID playbook for the EventHound toolbox
-updated: 2026-07-21
-version: 0.1.0
+updated: 2026-09-11
+version: 0.1.1
 linked_files:
   - analysis/adapters/windows_eventid.py
   - analysis/engine/hayabusa_runner.py
   - docs/analysis/correlation.md
   - method/fonti/riferimenti.md
 changelog:
+  - "0.1.1 — 2026-09-11 — the RAG/framework reference became 'framework references under method/' after the RAG removal of 2026-09-01."
   - "0.1.0 — 2026-07-21 — first draft: analyst-facing hunting patterns per Event ID mapped to the Hayabusa toolbox commands, plus BloodHound/SpecterOps companion notes. Source: A. Kiraz, 'Threat Hunting with Windows Event Logs' (level 2-3), cross-checked against the project SOT and Microsoft auditing docs."
 ---
 
@@ -99,4 +100,4 @@ IP/user/host, temporal episodes) to promote a lead to a reconstructed session.
   for 1644, script-block logging for 4104, Sysmon deployment for EID 1). A missing EID is often a
   visibility gap, not absence of the activity.
 - Level 2-3 source: treat every heuristic as a lead to confirm against the endpoint and, where relevant,
-  the RAG/framework references (§6). Numbers and verdicts are never produced by hand.
+  the framework references under `method/` (§6). Numbers and verdicts are never produced by hand.

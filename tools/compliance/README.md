@@ -1,7 +1,7 @@
 # tools/compliance — incident → obligations mapping (GDPR/NIS2/DORA)
 
 Given an incident, indicates **which notification obligations** are triggered, with **deadlines**, authorities,
-and **article references**. Bridges analysis with the normative RAG (collection `normative`, containing
+and **article references**. Bridges analysis with the normative knowledge (`method/normative/`, containing
 GDPR/NIS2/DORA): the engine flags the incident, here you see *what must be notified and by when*.
 
 **Not legal advice.** It's a triage support: indicates what to verify. Legal content is
@@ -30,5 +30,5 @@ significant_incident, financial_entity, major_ict_incident)` (registered in `.mc
 | `financial_entity` | DORA | financial entity |
 | `major_ict_incident` | DORA | "major" ICT incident |
 
-For details and precise citations: `method/normative/obligations-map.md` and the `normative` collection
-in the RAG.
+For details and precise citations: `method/normative/obligations-map.md` and the official texts under
+`method/normative/`.

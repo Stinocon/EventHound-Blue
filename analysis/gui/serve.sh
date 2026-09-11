@@ -2,8 +2,8 @@
 # Start the analysis engine's local GUI on 127.0.0.1 (NEVER exposed on the network — §10).
 # Dedicated port 8700 (8000 belongs to PersonalFinance's GUI).
 # Starts in the BACKGROUND and returns immediately: suitable both for manual use
-# (analysis/gui/serve.sh) and for the SessionStart hook (.claude/settings.json) that launches it
-# when the project opens. Idempotent: if the GUI already answers, it exits without a second process.
+# (analysis/gui/serve.sh) and for any SessionStart hook that launches it when the project opens.
+# Idempotent: if the GUI already answers, it exits without a second process.
 set -uo pipefail
 # Resolve both paths BEFORE cd'ing: `dirname "$0"` is relative to the ORIGINAL cwd, so computing
 # the project root from it after the cd resolves against the wrong base (it did: RUNDIR collapsed
@@ -23,7 +23,7 @@ LOG="$RUNDIR/gui-${PORT}.log"
 # nohup + & : uvicorn survives the hook/shell exiting; the first start also runs uv sync.
 # `python -m uvicorn` (not `uv run uvicorn`): the uvicorn console-script isn't always exposed in the env.
 nohup uv run python -m uvicorn app:app --host 127.0.0.1 --port "${PORT}" >"$LOG" 2>&1 &
-# Record the pid where setup-macos.sh `down` (and uninstall-macos.sh) look for it: a GUI started
+# Record the pid where setup-macos.sh `down` (and uninstall.sh) look for it: a GUI started
 # here must be stoppable by the same command that stops one started by `setup-macos.sh up`.
 echo $! >"$RUNDIR/gui.pid"
 disown 2>/dev/null || true

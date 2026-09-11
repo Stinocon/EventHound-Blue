@@ -14,7 +14,7 @@ reboots — the same reason it also holds non-secret preferences.
     python tools/eventhound_config.py get-setting allow_egress
 
 WHERE (§9/§10): `data/config.json` — `data/` is the project's private, gitignored area, so secrets
-land where client data already lives and can never reach the repo. `uninstall-macos.sh` does not
+land where client data already lives and can never reach the repo. `uninstall.sh` does not
 touch `data/`, so a reinstall finds its keys again. Override with `EVENTHOUND_CONFIG=<path>`.
 
 PRECEDENCE: an environment variable always wins over the stored value. An explicit `VT_API_KEY=…`
