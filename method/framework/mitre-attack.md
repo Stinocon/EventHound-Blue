@@ -1,12 +1,13 @@
 ---
 title: MITRE ATT&CK — tactics and techniques
-updated: 2026-07-20
-version: 0.1.1
+updated: 2026-09-11
+version: 0.1.2
 linked_files:
   - method/framework/INDEX.md
   - method/security-instructions.md
   - method/framework/cyber-kill-chain.md
 changelog:
+  - "0.1.2 — 2026-09-11 — the RAG/knowledge_cyber sourcing notes become the vendored ATT&CK map: the tactics table says 'confirmed' (not 'confirmed by RAG'), and the sections no longer name the removed collection."
   - "0.1.0 — 2026-06-15 — first draft, sourced from RAG knowledge_cyber (MITRE ATT&CK)."
   - "0.1.1 — 2026-07-20 — English translation."
 ---
@@ -33,14 +34,14 @@ Typical sequence along the intrusion (not rigidly linear):
 
 | order | tactic | ID |
 |-------|--------|-----|
-| 1 | Reconnaissance | `TA0043` (confirmed by RAG) |
-| 2 | Resource Development | `TA0042` (confirmed by RAG) |
+| 1 | Reconnaissance | `TA0043` (confirmed) |
+| 2 | Resource Development | `TA0042` (confirmed) |
 | 3 | Initial Access | `TA0001` (ID to verify) |
-| 4 | Execution | `TA0002` (confirmed by RAG) |
-| 5 | Persistence | `TA0003` (confirmed by RAG) |
-| 6 | Privilege Escalation | `TA0004` (confirmed by RAG) |
+| 4 | Execution | `TA0002` (confirmed) |
+| 5 | Persistence | `TA0003` (confirmed) |
+| 6 | Privilege Escalation | `TA0004` (confirmed) |
 | 7 | Defense Evasion | `TA0005` (ID to verify) |
-| 8 | Credential Access | `TA0006` (confirmed by RAG) |
+| 8 | Credential Access | `TA0006` (confirmed) |
 | 9 | Discovery | `TA0007` (ID to verify) |
 | 10 | Lateral Movement | `TA0008` (ID to verify) |
 | 11 | Collection | `TA0009` (ID to verify) |
@@ -48,15 +49,16 @@ Typical sequence along the intrusion (not rigidly linear):
 | 13 | Exfiltration | `TA0010` (ID to verify) |
 | 14 | Impact | `TA0040` (ID to verify) |
 
-IDs marked "confirmed by RAG" emerged directly from the `knowledge_cyber`
-collection; the others are the framework's standard values but **not**
+IDs marked "confirmed" are cross-checked against the vendored ATT&CK map
+(`analysis/analytics/attack_map.json`, generated from the official STIX bundle);
+the others are the framework's standard values but **not**
 found in local excerpts: validate them on attack.mitre.org before citing them
 as certain.
 
-## Techniques/sub-techniques confirmed by local RAG
+## Techniques/sub-techniques confirmed locally
 
-Useful as a repertoire of recurring examples in incident response (all found
-in `knowledge_cyber`):
+Useful as a repertoire of recurring examples in incident response (all
+cross-checked against the vendored ATT&CK map):
 
 - `T1566` Phishing (`.001` Attachment, `.002` Link)
 - `T1078` Valid Accounts (`.001` Default, `.002` Domain, `.003` Local)

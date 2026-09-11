@@ -1,12 +1,13 @@
 ---
-title: Curated sources and seed list for the crawler
-updated: 2026-08-27
-version: 0.4.0
+title: Curated sources and references
+updated: 2026-09-11
+version: 0.5.0
 linked_files:
   - method/conventions.md
   - method/framework/INDEX.md
   - docs/analysis/threat-hunting-evtx.md
 changelog:
+  - "0.5.0 — 2026-09-11 — the crawler/RAG ingestion half is removed with the RAG (2026-09-01): 'seed list for the crawler' becomes 'curated references', and the ingestion-criteria section is rewritten as 'How knowledge enters the suite' (curated markdown, no pipeline)."
   - "0.1.0 — 2026-06-14 — initial inventory of official sources."
   - "0.2.0 — 2026-06-16 — specific URLs validated (HTTP 200) for framework/methodology; new section 'Detection engineering and forensic analysis' in support of analysis/ (Sigma, Zircolite, Hayabusa, DuckDB, ECS, OCSF, EVTX-ATTACK-SAMPLES, YARA)."
   - "0.2.1 — 2026-07-20 — English translation."
@@ -18,7 +19,7 @@ changelog:
 
 # Sources and references
 
-Inventory of reliable technical sources. Dual function: reference for manual validations and **seed list** for future crawler/RAG (§13 of `method/conventions.md`). Sources remain material **to be validated**, not absolute authority.
+Inventory of reliable technical sources, curated as a reference for manual validation. Sources remain material **to be validated**, not absolute authority.
 
 ## Reliability hierarchy
 
@@ -74,53 +75,32 @@ hunting purpose → Hayabusa toolbox command).
 | BloodHound Community Edition (SpecterOps) | https://bloodhound.specterops.io | 2 | AD attack-path mapping (SharpHound → Neo4j graph). **Companion**, not ingested: complements EventHound's event timeline (§6); see the BloodHound bridge in `docs/analysis/threat-hunting-evtx.md` |
 | SpecterOps — BloodHound query library | https://queries.specterops.io | 2-3 | curated Cypher queries for BloodHound. Reference for correlation-recipe *ideas* only (Cypher/Neo4j ≠ DuckDB SQL), not direct reuse |
 
-## Ingestion criteria for the crawler
+## How knowledge enters the suite
 
-Applied to `rag/pipeline/ingest.py` and `rag/sources.yaml`. These are operational rules, not aspirations.
-
-### What to index
-
-| Priority | Source type | Example | Rationale |
-|----------|-----------|---------|-----------|
-| 1 | Official frameworks (Level 1) | MITRE ATT&CK STIX, NIST CSF/SP 800, CISA KEV | Authoritative, no comparable alternative |
-| 2 | Tooling documentation (Level 1) | DuckDB, Sigma, Hayabusa, ECS | Behaviour of the tools the suite drives |
-| 3 | Normative/regulatory | GDPR, NIS2, DORA, ACN guidelines | Compliance obligations (§12) |
-| 4 | Curated research (Level 2) | SANS white papers, security vendor research | Methodology and detection patterns |
-| 5 | Community/reference (Level 3) | Project notes, YARA rule-sets, hunting patterns | Operational, validated against Level 1-2 |
+Knowledge is **curated markdown**, not a machine index. A source earns its place when it answers a
+recurring question the analyst actually asks; the distilled answer goes into the relevant `method/`
+index (`framework/`, `normative/`, `acn/`), and the raw material stays offline (official PDF, STIX
+bundle) or is linked above for validation. ATT&CK technique→tactic is the one machine-consumed piece:
+it is vendored as `analysis/analytics/attack_map.json`, regenerated from the official STIX bundle by
+`analysis/analytics/build_attack_map.py`.
 
 ### Format hierarchy (prefer offline over web)
 
-1. **STIX bundle** — complete, offline, reproducible (MITRE ATT&CK)
-2. **PDF** — downloaded manually (EUR-Lex requires 202, vendor guides)
-3. **Markdown/text** — curated project notes in `docs/*/notes/`
-4. **Web crawl** — only for public sources without offline equivalent; requires §15 (VPN + human confirmation) and `CY_ALLOW_WEB_EGRESS=1`
-
-### Frequency
-
-- **Offline/static sources**: manual re-indexing via `rag/reindex.sh` when content changes or model is upgraded.
-- **Web crawl**: on-demand, not scheduled. Each crawl requires §15 consent. Failed crawls logged in `ingest_status.json`.
-- **Post-ingest validation**: automatic golden query run on touched collections (`ingest.py --no-skip-eval`).
-
-### Exclusion criteria (from `sources.yaml` defaults)
-
-- Marketing pages, course catalogs, registration flows, changelogs (`exclude_patterns`)
-- Pages with < 50 words (`word_count_threshold: 50`)
-- Max depth 2, max 300 pages per source (`max_depth: 2`, `max_pages: 300`)
-- Sources with `enabled: false` require manual review before activation
-- No scraping when equivalent offline content exists (PDF, STIX)
+1. **Official text / STIX bundle** — the primary source (MITRE ATT&CK, GDPR/NIS2/DORA, ACN PDFs).
+2. **Markdown notes** — the curated distillation, kept under `method/`.
+3. **Web** — only to validate a link or read a public source with no offline equivalent; never
+   scraped in bulk (§15).
 
 ### Adding a new source
 
-1. Verify the URL is accessible and the content is relevant (Level 1-3 classification).
-2. Choose the appropriate `type` (`stix`, `pdf`, `web`, `text`) — prefer offline formats.
-3. Add the source to `rag/sources.yaml` with `enabled: true` (or `false` if gated).
-4. Run `uv run python -m pipeline.ingest --source <id>` and verify chunks in Qdrant.
-5. Run golden queries against the touched collection.
-6. Add the source to this file (`method/fonti/riferimenti.md`) with level and notes.
+1. Verify the source is authoritative (Level 1-3 above) and answers a recurring question.
+2. Add it to this file with level and notes.
+3. If it changes an analysis-grounded fact (an ATT&CK mapping, a compliance obligation), update the
+   corresponding `method/` note in the same change.
 
 ## To do
 
 - [x] Replace generic references with specific validated URLs. *(2026-06-16: framework/detection engineering; 2026-07-24: all HTTP 200 confirmed.)*
 - [x] Add level 2-3 blog/research useful for threat hunting. *(2026-07-21: EVTX-hunting article + BloodHound CE + SpecterOps queries; distilled into `docs/analysis/threat-hunting-evtx.md`.)*
-- [x] Define ingestion criteria for the crawler (what to index, frequency, formats). *(2026-07-24: see section below.)*
+- [x] Define how knowledge enters the suite (curation, formats). *(2026-07-24: ingestion criteria for the crawler; 2026-09-11: rewritten for the markdown knowledge base — see 'How knowledge enters the suite'.)*
 - [x] ~~SonicWall: add official links~~ — dropped 2026-08-27: vendor product documentation is out of scope (see the changelog entry above).

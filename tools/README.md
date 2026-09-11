@@ -26,14 +26,14 @@ network traffic — `allow_egress` does, and only for public indicators (§9/§1
 ## Conventions
 
 - **Shell**: `set -uo pipefail` (no `-e`) in *soft* guards, so a check that signals does not halt the rest of the run; *hard* gates handle failure explicitly. Each script `cd`'s to the repo root.
-- **Python**: all via `uv run` (environment managed by uv, no global installation). Tests auto-skip when their external dependency is missing (dataset, tshark, Qdrant, VT key).
+- **Python**: all via `uv run` (environment managed by uv, no global installation). Tests auto-skip when their external dependency is missing (dataset, tshark, VT key).
 - **Single runner**: `tools/check.sh` orchestrates everything; it's the gate to run before a commit.
 
 ## Hygiene guards (shell)
 
 | Script | What it does | Gate | Notes |
 |---|---|---|---|
-| `check.sh` | Workspace health run: leak + input guard + guard smoke + analysis tests (EVTX/PCAP/logon) + offline RAG tie-breaker + golden scoring/enrichment/compliance. `--rag` adds RAG golden queries (Qdrant 6343); `--props` runs property tests. | — | Exits !=0 on any *hard* failure. |
+| `check.sh` | Workspace health run: leak + input guard + guard smoke + analysis tests (EVTX/PCAP/logon) + golden scoring/enrichment/compliance. `--props` runs property tests. | — | Exits !=0 on any *hard* failure. |
 | `check-leaks.sh` | Output boundary: forbidden versioning paths + actual client identifiers (from `data/pseudonym-map.md`) in tracked/staged files. `--tracked` scans all tracked. | hard | Can be hooked as pre-commit (below). |
 | `check-injection.sh` | Input boundary: prompt-injection patterns (IT+EN) and agent-config artifacts in untrusted areas (`data/`). With an argument, scans an ad-hoc file before ingestion. | soft | Signals, does not decide. See `method/conventions.md` §8. |
 | `check-config-integrity.sh` | TRUST SURFACE integrity: hashes the scripts and MCP servers that run at session/commit/check time against a local baseline; signals any drift. `--update` re-snapshots. | soft | Supply-chain defense (§10). The baseline is **local** (untracked): generate it once per clone with `--update`. Env `CY_CONFIG_BASELINE`. |

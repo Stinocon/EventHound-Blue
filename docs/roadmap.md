@@ -1,13 +1,14 @@
 ---
 title: EventHound roadmap — what is built, what is open
-updated: 2026-09-01
-version: 1.43.0
+updated: 2026-09-11
+version: 1.44.0
 linked_files:
   - README.md
   - analysis/DESIGN.md
   - method/conventions.md
   - docs/analysis/performance.md
 changelog:
+  - "1.44.0 (2026-09-11) — publication sweep after the RAG/LLM removal. The Built section stops describing the removed vector RAG and on-box LLM (a Knowledge base bullet and the MCP interface take their place); the Publication blocker open item is closed (the new repo disposed of it); the `knowledge_cyber` RAG entry is dropped; and the closed decisions gain the removal itself, reframe 'native over containers' without the 14B rationale, and drop the RAG phrasing from the no-vendor-docs decision. The 1.0.0–1.43.0 changelog above keeps the removal and everything before it in the past tense."
   - "1.43.0 (2026-09-01) — the two heaviest, least-validated subsystems are removed: the vector RAG and the on-box LLM. The RAG (Qdrant + fastembed + cross-encoder rerank + rag-api, a 3.2 GB model cache) existed to ground questions in ATT&CK/GDPR/NIS2/ACN — but ATT&CK was already vendored as attack_map.json and the rest is a few markdown indexes under method/. The knowledge base is now plain markdown, read directly. The on-box LLM (Ollama + tool orchestration + memory guard + redaction + toolbench) was the least reliable part — the toolbench itself measured that the 14b narrates tool calls and neither model refuses evasion reliably. Replaced by an **analysis MCP server** (analysis/analysis_mcp_server.py: analyze / analyze_case / eid_lookup) that exposes the pipeline to an external agentic harness (Pi, Claude Code, …) and returns pseudonymized findings (§9) via a shared redact.py. One agent file stays: AGENTS.md; CLAUDE.md/AGENTS.local.md/.claude/effort-dispatch and the MCP/trust-surface machinery are gone. Gate green, demo + corpus green."
   - "1.42.0 (2026-09-01) — R6-A follow-through: the twelve defects that round left OPEN are closed, with regression tests. In consequence order from 1.41.0: (1) Zeek notices join on `uid` (notice.log has no `conn` column — the old join key made every notice unreachable) and now reach a record; (2) the enrichment indexes are LISTS, not one-slot dicts, so a keep-alive connection's several HTTP requests / DNS answers become one record each instead of collapsing to the last; (3) the `.reg` layer decodes `hex(1)`/`hex(2)` — regedit writes REG_SZ/REG_EXPAND_SZ as UTF-16LE hex — so the indicator layer now fires on a `REG_EXPAND_SZ` value (the one type regedit uses for paths with environment variables); (4) a LogScale export saved as a JSON ARRAY is detected as logscale instead of falling through to the clipboard parser and yielding nothing; (5) `_LOGSCALE_MAP` gained `ImageFileName`/`CommandLine`/`DomainName`/`RemoteAddressIP4`; (6) Hayabusa's abbreviated tactic vocabulary (`DefImpair`/`CredAccess`/…, grounded in its `config/mitre_tactics.txt`) is normalized to ATT&CK names, so a tactic-only rule resolves its phase instead of carrying an opaque string; (7) `rule.name` is a store column (YARA rule, Zeek notice) and YARA no longer stamps the matched file as `process.name`; (8) osquery `remote_address` → `destination.ip`; (9) the three timestamp defects: THOR's year fallback is the report's mtime (not `datetime.now().year`), and MFT/RECmd timestamps are normalized to ISO-8601 (space→T, 7-digit→6-digit fraction) in a shared `ez_json.norm_ez_ts`. Gate green (107 passed, 4 skipped, 73% coverage); demo end-to-end and the 15-case/33-check correlation corpus both green. Schema 0.9.0."
   - "1.41.0 (2026-08-30) — R6, FOURTH adversarial round: the worst findings this project has had, and the first tier of fixes. The round was scoped to `analysis/adapters/` — the area no previous round had touched — and it was run by reading the VENDORS' sources and executing the adapters against real tool output rather than against the repository's own fixtures. **Two of the eleven sources had never worked on real data.** MFTECmd writes NDJSON, one record per line; RECmd `--json` writes one nested `SimpleKey` document with its values inside it, and `--bn` writes NDJSON. Both adapters accepted only a top-level ARRAY, with a dict fallback that could never fire (`data.get(\"Data\") or []`, where `[]` is already a list). So a `$MFT` raised `JSONDecodeError: Extra data`, was caught, and the file was skipped in SILENCE — zero records, empty `errors`, the source reported as ingested, and a report saying \"no suspicious files\" because nothing had been read. A hive produced zero the same way. The tests fed a hand-written array — the one shape neither tool produces — and one of them ASSERTED the defect (`assert len(loaded) == 0  # NDJSON unsupported`), which is the line that made it permanent; both end-to-end tests self-skip for want of a real artifact, so nothing ever ran the real shape. Now `adapters/ez_json.py` (NDJSON / array / single document / `Data` wrapper, plus the SimpleKey tree flattened to one row per value), with the real shapes pinned in both test files. **The MFT artifact key was corrupt**: MFTECmd sets `Extension = Path.GetExtension(FileName)` and .NET includes the leading period, so the \"append if missing\" guard tested for `..exe` and produced `malware.exe..exe` — the join key the whole source exists for. **`file.hash` was Sysmon's IMPHASH.** The adapter copied the entire `SHA1=…,MD5=…,SHA256=…,IMPHASH=…` string into the field and `canon_hash` takes the part after the LAST `=`. Worse than losing the hash: an imphash is designed to be shared by unrelated binaries with the same import table, so the store asserted \"same artifact\" across different programs — the `aip` failure mode, from a field the report labels \"file hash\" and an analyst pivots into VirusTotal. SHA-256 and MD5 are split out now and the imphash is never a file hash. **Every Sysmon event lost its user**: `_USER_KEYS` had no `User`, which is how Sysmon spells it, so on a Sysmon-heavy collection — the normal case for `--evtx-full` — every record entered the store with no identity. The realm now travels IN the name (`CORP\\alice`), because the store derives `user_domain` from `user.name` and a separate field would have been written and never read; `realms_conflict` could not fire on this source at all before. **The ASEP table was two copies and half of it was dead.** The two registry adapters each carried their own; they were still identical, which is luck rather than design. Merged into `adapters/registry_asep.py` and, in the merging, fixed: an offline SYSTEM hive contains `ControlSet001`, not the boot-time `CurrentControlSet` symlink, so every service, LSA package, print monitor and BootExecute entry matched nothing — and a key that classifies as None is DISCARDED, not merely unlabelled; RECmd's `KeyPath` is hive-root-relative and matched nothing either; `knownlls` was a typo; three patterns named a VALUE and were tested against a KEY, so an SSP DLL added for credential theft (T1547.005) classified as nothing; and first-match order let `Run` shadow `RunOnce`/`RunServices`/`RunServicesOnce` and `Services` shadow `Winsock2\\Parameters`. Matching is longest-first now. **Still open from this round, in consequence order**: Zeek notices never reach a record (the join key `conn` is not a column of `notice.log` — it is `uid`), one dict slot per uid drops every HTTP request and DNS query but the last on a connection, the `.reg` indicator layer cannot fire on `REG_EXPAND_SZ` (regedit writes it as `hex(2):` UTF-16), a LogScale export saved as a JSON array parses as clipboard text and yields nothing, `_LOGSCALE_MAP` omits the image name, command line, domain and remote address the schema documents, Hayabusa's abbreviated tactic vocabulary (`DefImpair`, `CredAccess`) is passed through as if it were ATT&CK's, YARA's matched rule name has no store column and the scanned file is stored as a process, osquery's `remote_address` is written to `source.ip`, and three timestamp defects including a THOR fallback to `datetime.now().year`."
@@ -87,23 +88,22 @@ earned it its place), and the ATT&CK/kill-chain layer: technique → tactic from
 map, kill-chain phase coverage per dataset, per host, and per cluster.
 
 **Interfaces** — CLI first (`engine/run_*.py`), the local GUI on `127.0.0.1:8700` as a thin layer
-over the same functions, and an on-box conversational engine (Ollama) that orchestrates the
-project's own tools and the RAG, with an anonymization gate in front of every prompt (§9).
+over the same functions, and an external agentic harness (Pi, Claude Code, …) reached through the
+analysis MCP server (`analysis/analysis_mcp_server.py`: `analyze` / `analyze_case` / `eid_lookup`,
+pseudonymized §9).
 
 **Outputs** — HTML / Markdown / JSON reports at three detail levels, re-importable analysis
 bundles (`engine/bundle.py`) so conclusions reopen without the original evidence, and persistent
 **cases** (`analytics/case_store.py`) that keep the data itself: sources accumulate across
 sessions, notes stay with the case, and two cases can be diffed.
 
-**RAG** — hybrid retrieval (dense e5-large ⊕ BM25, RRF fusion, cross-encoder rerank) over Qdrant,
-with an authority/recency tie-breaker. Served in-process, or over HTTP by `rag-api`. Each collection
-answers a recurring question rather than existing for completeness: MITRE ATT&CK (offline STIX) for
-what a technique means, GDPR/NIS2/DORA and ACN for whether an incident is notifiable and within what
-deadline. Vendor product documentation is deliberately not among them (see "Closed decisions").
+**Knowledge base** — plain markdown under `method/` (`framework/` MITRE/NIST/SANS/CIS, `normative/`
+GDPR/NIS2/DORA, `acn`), read directly by the analyst; ATT&CK technique→tactic is vendored in
+`analysis/analytics/attack_map.json` (generated from the official STIX bundle).
 
 **Measurement** — a labelled corpus for correlation (`analysis/eval/`, run by `engine/run_eval.py`)
 declaring what must and must not link, plus a discrimination test that breaks a knob and checks the
-corpus notices; golden queries for the RAG; golden tests for the scoring oracle. The engine suite
+corpus notices; golden tests for the scoring oracle. The engine suite
 runs under pytest with coverage (69–70% at the 2026-08-27 measurement, depending on whether the
 optional `yara` extra is installed; CLI entry points included) and
 reports a missing dependency as a skip rather than a pass; the GUI's pure logic is unit-tested with
@@ -238,17 +238,11 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
 
 ## Open
 
-- **Publication blocker — the operator's personal mailbox is in a commit message.** `3602ad4`
-  ("rag: identify the crawler through the project, not a personal mailbox") removed the address from
-  `rag/sources.yaml` and restated it in its own message body, next to the sentence "The repo is bound
-  for public." Verified across all 1305 historical blobs: the string exists in **no file content at
-  any revision** — only in that one message, so the file-side remediation worked and the message
-  undid it. This is Stefano's own data and only he can waive it, but he acted deliberately to keep it
-  out, so by his own standard it blocks. It is the ONLY item requiring a history rewrite — and it is
-  avoidable entirely by pushing to a **new empty public repository** instead of flipping visibility
-  on this one, which also disposes of the agent-configuration blobs that `70483b8` removed from HEAD
-  (`.agents/`, `.codex/`, including the one home-directory path anywhere in the project) and closes
-  the residual risk that a force-push left orphaned commits GitHub would still serve by SHA.
+- **Publication blocker — personal mailbox in a commit message — CLOSED 2026-09-01.** The fix was
+  the one this entry named as the avoidable alternative: the repository was re-created as
+  `Stinocon/EventHound-Blue` with squashed history (author `Stinocon`), disposing of the mailbox in
+  `3602ad4` and of the agent-configuration blobs (`70483b8`) in one move. The old `Stinocon/EventHound`
+  repo has been deleted.
 
 - **Registry findings are stored but contribute no artifact entity.** Since the columns exist
   (1.35.0) the evidence survives ingest and can be rendered, but a Run key whose `registry.data` is
@@ -378,10 +372,6 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
   **Still open**: `brew install osquery`, produce a real result log, confirm the remaining fields.
   **Out of scope**: deploying or managing agents and fleets — that would make EventHound an EDR
   console and cross §12.
-- **`knowledge_cyber` completion** — MITRE ATT&CK is indexed from the official offline STIX bundle
-  (2282 hybrid chunks, ATT&CK golden tests green). NIST/SANS/ISC2 still need a re-crawl (scraping →
-  VPN and confirmation first, §15) or local SP 800 PDFs; until then three NIST/concept golden queries
-  are expected to fail. Procedure queued in `rag/reindex.sh`.
 - **CrowdStrike adapter — done (2026-07-24).** Two formats supported: detection clipboard
   (`Key: Value` blocks) and LogScale/CQL JSON (single JSON, NDJSON, `@rawstring:` wrapper). Field
   mapping grounded on a real detection (not guessed, §6/§7) — which is what unblocked the entry:
@@ -448,8 +438,16 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
   the value is the schema above them and the correlation between them.
 - **Document third-party rule sets, do not vendor them.** Applied to YARA (license variety) and to
   the osquery configuration packs.
-- **Native over containers on macOS.** Docker there is CPU-only and RAM-capped, so the on-box 14B
-  model OOMs; native uses Metal and full host RAM.
+- **Native over containers on macOS.** Docker Desktop there is CPU-only and memory-capped by the
+  Docker VM, so the native stack is the recommended runtime on macOS; Docker stays for reproducible
+  / non-macOS deployments.
+- **No bundled LLM, no vector RAG.** *(2026-09-01)* The on-box LLM (Ollama + a small owned tool-calling
+  loop) and the vector RAG (Qdrant + fastembed + cross-encoder rerank) were the two heaviest,
+  least-validated subsystems and were removed. ATT&CK is already vendored as `attack_map.json` and the
+  rest of the grounding knowledge is a few markdown indexes under `method/`, read directly. The
+  interpretation layer is now **external** — the analysis MCP server (`analysis/analysis_mcp_server.py`)
+  — so reasoning lives in the agent harness (Pi, Claude Code, …), never in a bundled model; EventHound
+  stays deterministic and local.
 - **No speculative adapters.** An adapter is written against a real sample, never against a format
   guessed from documentation.
 - **No vendor product documentation in the RAG.** *(2026-08-27)* `cs_falcon_docs` and
@@ -457,9 +455,9 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
   manual dates the moment it is indexed, and both vendors now ship an **official MCP server** that
   answers the same questions against the live product; that work belongs in a separate project, not
   here. What stays is the *artifact* side — the CrowdStrike ingest adapter parses an export the
-  analyst already holds, exactly like an EVTX or a PCAP. The RAG keeps only what grounds the
-  analysis itself: frameworks (`knowledge_cyber`), regulations (`normative`) and ACN (`acn`).
-  Corollary: a product-syntax question has **no** answer in the index, and saying so is correct.
+  analyst already holds, exactly like an EVTX or a PCAP. The knowledge base keeps only what grounds the
+  analysis itself: frameworks, regulations and ACN.
+  Corollary: a product-syntax question has **no** answer here, and saying so is correct.
 - **New products are not a standing backlog item.** Okta shipped as a CLI source because a documented
   schema and a plausible sample existed; Microsoft 365 / Entra, Proofpoint and the rest are *not*
   tracked as to-do. They follow from the decision above, not from an ambition to cover every vendor:

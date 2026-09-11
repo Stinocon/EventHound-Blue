@@ -3,7 +3,7 @@
 #
 # Why this exists as a script rather than as a line in a checklist: twice now a hard check has been
 # green here and red for everyone else, because the working tree is not the repository. It carries
-# the installer's output (`analysis/.tools/`, the venvs, `rag/.env`), a populated `data/`, and a
+# the installer's output (`analysis/.tools/`, the venvs), a populated `data/`, and a
 # local trust-surface baseline — none of which a clone has. `tools/check.sh` run here answers
 # "does it pass on this machine"; run there it answers "does it pass for someone who clones it",
 # which is the only version of the question a release cares about.

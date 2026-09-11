@@ -13,9 +13,9 @@ changelog:
 
 # SANS — Incident Response (PICERL)
 
-> Provenance: the `knowledge_cyber` collection indexes SANS white papers and
-> resources, but the six IR process phases are **not** directly found in local
-> excerpts. The content below is the framework standard: **validate on official
+> Provenance: SANS white papers and resources are referenced, but the six IR
+> process phases are **not** directly distilled in local notes. The content
+> below is the framework standard: **validate on official
 > SANS material** before citing it as certain (rule §6 in `method/conventions.md`).
 
 ## The six phases (PICERL)

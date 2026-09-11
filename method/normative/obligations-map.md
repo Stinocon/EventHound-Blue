@@ -1,19 +1,19 @@
 ---
 title: Incident → notification obligations mapping (GDPR/NIS2/DORA)
-updated: 2026-07-20
-version: 0.1.1
+updated: 2026-09-11
+version: 0.1.2
 linked_files:
   - method/normative/INDEX.md
   - tools/compliance/obligations.yaml
-  - rag/sources.yaml
 changelog:
+  - "0.1.2 — 2026-09-11 — `rag/sources.yaml` left `linked_files` after the RAG removal (2026-09-01)."
   - "0.1.0 — 2026-06-21 — initial draft: obligations/timing table + reference to resolver and RAG. Timings to be validated against official text."
   - "0.1.1 — 2026-07-20 — English translation."
 ---
 
 # Incident → notification obligations mapping
 
-From an incident, **what must be notified and by when**. Support to triage, **not legal advice**: timings must be confirmed against the **official text** (RAG, collection `normative`, which contains GDPR/NIS2/DORA). The applicability logic is automated in the **resolver** `tools/compliance/` (MCP tool `incident_obligations`), golden-tested; this note is the readable source of truth of the rules (SOT shared with `obligations.yaml`).
+From an incident, **what must be notified and by when**. Support to triage, **not legal advice**: timings must be confirmed against the **official text** under `method/normative/` (GDPR/NIS2/DORA). The applicability logic is automated in the **resolver** `tools/compliance/` (MCP tool `incident_obligations`), golden-tested; this note is the readable source of truth of the rules (SOT shared with `obligations.yaml`).
 
 ## Synthetic overview (to be validated against official text, §6)
 

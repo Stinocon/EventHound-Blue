@@ -71,8 +71,8 @@ RUN for pair in evtxecmd:EvtxECmd recmd:RECmd mftcmd:MFTECmd; do \
     done
 
 # ── 5. Dipendenze Python ──────────────────────────────────────────────────────────────
-# Versioni allineate a analysis/pyproject.toml + analysis/gui/pyproject.toml (SOT). Stesso pattern
-# di rag-api.Dockerfile: pip diretto nel python di sistema, niente venv nell'immagine.
+# Versioni allineate a analysis/pyproject.toml + analysis/gui/pyproject.toml (SOT).
+# pip diretto nel python di sistema, niente venv nell'immagine.
 RUN pip install --no-cache-dir \
         "duckdb>=1.0.0" \
         "fastapi>=0.110" \

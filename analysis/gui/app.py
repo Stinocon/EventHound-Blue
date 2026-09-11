@@ -506,8 +506,8 @@ def get_config() -> dict:
     """Masked configuration status: which third-party keys are set, and where they come from.
 
     NEVER returns a usable key — only a `…abcd` hint (eventhound_config.status()). The same store
-    backs the CLI, so a key set here is already in place for `engine.run_ai`, the MCP tools and the
-    enrichment CLI, and vice versa."""
+    backs the CLI, so a key set here is already in place for the MCP tools and the enrichment CLI,
+    and vice versa."""
     cfg = _config_mod()
     return {"path": str(cfg.config_path()), "services": cfg.status(), "settings": cfg.settings()}
 

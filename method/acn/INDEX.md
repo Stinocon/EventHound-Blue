@@ -1,12 +1,12 @@
 ---
 title: ACN — official documents (index)
-updated: 2026-07-21
-version: 0.1.2
+updated: 2026-09-11
+version: 0.1.3
 linked_files:
-  - rag/sources.yaml
   - method/framework/INDEX.md
   - method/normative/
 changelog:
+  - "0.1.3 — 2026-09-11 — `rag/sources.yaml` left `linked_files` and the 'Portal crawling' section rewritten after the RAG removal (2026-09-01)."
   - "0.1.0 — 2026-06-15 — initial index; 7 official ACN PDFs indexed in the RAG collection `acn`."
   - "0.1.1 — 2026-07-20 — English translation."
   - "0.1.2 — 2026-07-21 — fixed stale CLI reference (pipeline.query is a deprecated alias; use pipeline.retrieve, per method/conventions.md §14/§21)."
@@ -17,10 +17,6 @@ changelog:
 Official ACN documents used as national normative/methodological knowledge to support analysis and documentation writing. The PDFs (raw input) are **gitignored** (`method/acn/*.pdf`); this index remains versioned.
 
 They are the raw PDFs in this directory; the curated notes below summarize them.
-
-```
-cd rag && uv run python -m pipeline.retrieve "<question>" --collection acn
-```
 
 ## Documents present
 
@@ -36,14 +32,16 @@ cd rag && uv run python -m pipeline.retrieve "<question>" --collection acn
 
 ## Use in analysis
 
-Complementary national reference to EU texts (`method/normative/`, collection `normative`): ACN provides the operational *how* for Italy (incident management and notification, risk management, email hardening) where GDPR/NIS2 provide the obligation. Particularly useful for writing documentation and procedures aligned with national guidelines.
+Complementary national reference to EU texts (`method/normative/`): ACN provides the operational *how* for Italy (incident management and notification, risk management, email hardening) where GDPR/NIS2 provide the obligation. Particularly useful for writing documentation and procedures aligned with national guidelines.
 
 ## Adding documents
 
 1. Save the new official PDF in `method/acn/` (it will be ignored by git).
-2. Re-index: `cd rag && uv run python -m pipeline.ingest --source acn-pdf`.
+2. Add a row to the table above and, where useful, a curated note summarizing what it changes.
 
-## Portal crawling (opt-in)
+## Web sources (opt-in, §15)
 
-`rag/sources.yaml` contains a source `acn-web` (seed `acn.gov.it`) **disabled**.
-It should be activated only with an active VPN and explicit confirmation (§15 of `method/conventions.md`): it is scraping of the national authority website. Until needed, the primary path remains the official PDFs above.
+The official PDFs above are the primary path. Scraping the ACN portal (`acn.gov.it`) is deliberately
+**not** done here: it would be bulk scraping of the national authority's website, which requires an
+active VPN and explicit confirmation (§15 of `method/conventions.md`). Until that is warranted, the
+curated notes in this index are maintained by hand from the official documents.

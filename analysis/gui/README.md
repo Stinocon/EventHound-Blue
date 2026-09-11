@@ -3,8 +3,8 @@
 EventHound web interface for uploading EVTX/PCAP/logs/registry hives from the browser and viewing
 the engine's analytics without using the CLI: ATT&CK detection, long-tail (process stacking, rare
 parent-child, rare DNS, non-standard ports, **beaconing**), per-host summary, **cross-source
-indicators**, timeline, plus the **Hayabusa toolbox** (metrics/search/pivot/base64, see below) and a
-**RAG panel** for interpretation. Icons are official Material Symbols inlined as SVG (single
+indicators**, timeline, plus the **Hayabusa toolbox** (metrics/search/pivot/base64, see below).
+Icons are official Material Symbols inlined as SVG (single
 `ICON_PATHS` source in `static/index.html`) — fully offline/CSP-safe, no icon font or CDN.
 
 It is a thin layer over `analytics.runner.analyze()` (plus dedicated wrappers for the Hayabusa
@@ -24,7 +24,7 @@ the full `analyze()` payload (or an `error` event).
 ## Startup
 
 ```
-./setup-macos.sh up gui    # from the repo root: the usual way (also starts qdrant/ollama with `up`)
+./setup-macos.sh up gui    # from the repo root: the usual way
 
 cd analysis/gui && uv sync --extra yara && ./serve.sh   # or directly — http://127.0.0.1:8700
                                            # (port override: ANALISI_GUI_PORT; pid in .run/gui.pid)
@@ -43,12 +43,6 @@ builds an `eventhound` image (`analysis/eventhound.Dockerfile`) with every tool 
 - `GET /api/health` — `{status, runtime, hayabusa, tshark, zeek, evtxecmd, recmd, mftecmd, decode}`.
   Read at boot by every view, not only by Settings: a source view whose tool is missing now says
   what that costs (`toolNotices`, `static/lib.js`) instead of letting the upload fail later.
-- `GET /api/services` — `{qdrant, rag_api, ollama}`, each `{state: up|down|unknown, detail,
-  required:false}`. Separate from `/api/health` because it talks to three sockets: health
-  answers from `shutil.which` and is on the boot path, this one is asked for by the Settings
-  view and by the Assistant on arrival. Ollama's answer comes from `OllamaClient.unusable_reason`
-  — the same one the CLI and the chat endpoint use — so it also covers a model that is pulled
-  and still will not fit on this host.
 - `POST /api/analyze` — multipart with one or more `.evtx`/`.pcap`(`.pcapng`/`.cap`)/log
   (`.log`/`.txt`/`.json`/`.jsonl`/`.csv`)/`.reg` files; `evtx_full=true` routes EVTX through
   EvtxECmd instead of Hayabusa. Returns an SSE stream (progress events + final `complete`/`error`).
@@ -114,16 +108,7 @@ builds an `eventhound` image (`analysis/eventhound.Dockerfile`) with every tool 
   dedicated endpoint, puts the matches through the correlation. One road in.)*
 - `GET /api/attack-map` — the ATT&CK technique→tactic/phase map used by the front end.
 - `GET|POST /api/config` — the GUI↔CLI shared settings store (API keys masked on read).
-- `POST /api/ai/chat` (SSE) and `POST /api/ai/explain` — the on-box LLM over the same tools + RAG.
-  `enrich` defaults to the stored `allow_egress` setting rather than to `false`: the Settings switch
-  used to write a value nothing read from the browser, so the threat-intel tool was unreachable from
-  the GUI. `ai/tools.enrich_indicator` re-reads the setting before any request leaves the machine.
 - `POST /api/decode` — Base64/hex/URL/ROT/XOR/Base58/unicode auto-decoding of pasted text.
-- `POST /api/rag/search` — proxies `rag_search` to the **rag-api** service over HTTP
-  (`RAG_API_URL`, default `http://127.0.0.1:8600`), with a subprocess fallback (`uv run` in the RAG
-  venv) so the panel still works without the service running. The GUI venv itself never imports the
-  ML stack in-process.
-
 ## Test
 
 ```

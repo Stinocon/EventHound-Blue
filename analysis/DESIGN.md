@@ -1,11 +1,10 @@
 ---
 title: Analysis and correlation engine — design and plan
-updated: 2026-08-29
-version: 0.35.0
+updated: 2026-09-11
+version: 0.36.0
 state: "see docs/roadmap.md — the single source of truth for what is built and what is open. Three hand-maintained inventories said the same thing and drifted; this field is now a pointer, not a fourth. (Historical value at 0.22.2: Phases 1-2 implemented, Phase 3 landed, host-artifact spokes remaining.)"
 related_files:
   - method/conventions.md
-  - rag/README.md
   - method/anonymization.md
   - method/framework/INDEX.md
   - analysis/README.md
@@ -13,6 +12,7 @@ related_files:
   - docs/analysis/threat-hunting-evtx.md
   - docs/analysis/performance.md
 changelog:
+  - "0.36.0 — 2026-09-11 — the RAG/on-box-LLM removal of 2026-09-01 is now reflected in the body, not only the heading: §13.7 describes the single-image `eventhound` stack, §14 is collapsed to a REMOVED marker pointing at the analysis MCP server, and `rag/README.md` left `related_files` (the 14.1–14.9 design history stays in the changelog above)."
   - "0.35.0 — 2026-08-29 — both images built and exercised, not inferred. In `rag-api` the shared `hostmem` imports and the guard refuses; in `eventhound` /api/config is a 200, the scoring oracle answers from inside the container, and a model chosen in the GUI reaches `configured_model()` through the named volume. The baked Linux binaries execute and the host's macOS ones did not leak in with the ignore-file move."
   - "0.34.0 — 2026-08-29 — the eventhound image can see `tools/`. It built from `./analysis`, which carries none, so in Docker the Settings view was a 500 and the assistant could not import the scoring oracle or the enrichment gate — §6's deterministic numbers absent from one of the three declared runtimes. Root build context, `COPY tools/ /tools` (where the code already looks), `analysis/.dockerignore` folded into the root allowlist since Docker reads only the one at the context root, and a named volume for the settings store so keys typed into the GUI survive the container without bind-mounting real `data/` (§10). Also closed: the reindex window between the delete and an ingest that can now refuse, and the inability to tell an unindexed collection from an empty result set."
   - "0.33.0 — 2026-08-29 — R6 on the §14.4 kill-chain digest. §9 verified clean on every production path. The rest: a bare `[:220]` per line fabricated evidence rather than shortening it (a truncated domain and a neighbouring real IP offered as observed, a technique ID clipped into a different valid ID), headers printed totals beside four visible rows, the block displaced the unified timeline out of the budget, the window width was dropped, the GUI's kill-chain button bypassed the packer entirely and lost the co-occurrence label, and `run_toolbench` packed before redacting — an order §14.5 itself described. All corrected; §14.5 now states redact-then-pack, which is what the two production callers always did."
@@ -64,16 +64,16 @@ changelog:
 
 # EventHound — analysis and correlation engine
 
-Design document. Defines a component for **analysis on real client data**, complementary to the RAG, supporting multiple products and workflow modes (EVTX event analysis, long tail analysis, cross-source correlation). Approach already decided: **wrap existing mature tools**, do not build a bespoke engine (no "homemade SIEM"). The tool is named **EventHound**.
+Design document. Defines a component for **analysis on real client data**, supporting multiple products and workflow modes (EVTX event analysis, long tail analysis, cross-source correlation). Approach already decided: **wrap existing mature tools**, do not build a bespoke engine (no "homemade SIEM"). The tool is named **EventHound**.
 
 ## 1. Objective and boundaries
 
 **Objective.** Given a set of heterogeneous security events (CrowdStrike export, Windows EVTX, Okta logs, ...), normalize them into a common schema, apply portable detection logic and local statistical analytics, and produce a report mapped to MITRE ATT&CK.
 
-**Complementary to the RAG, not an alternative.**
-- The **RAG** is the *knowledge* (what is a technique, how FQL works, what NIST says).
+**Complementary to the knowledge base, not an alternative.**
+- The **knowledge base** (`method/` + the vendored `attack_map.json`) is the *knowledge* (what a technique is, what a regulation requires).
 - The **engine** is the *analysis of real data* (this host, these events, this time window).
-- Synergy: the engine **flags** (e.g. `T1003.001` on `HOST-01`), the RAG **explains and suggests next steps**.
+- Synergy: the engine **flags** (e.g. `T1003.001` on `HOST-01`), the analyst — or an external agent through the MCP server — **explains and suggests next steps**.
 
 **Out of scope.** It is not a real-time SIEM, does not do continuous streaming/alerting, does not replace the product console. Works in *batch/forensic* mode on provided datasets.
 
@@ -83,7 +83,7 @@ Design document. Defines a component for **analysis on real client data**, compl
 2. **Local and offline.** Everything runs on the machine; no data leaves. Consistent with confidentiality.
 3. **Anonymized data.** Real events follow `method/anonymization.md`; output and datasets live in `data/` (private).
 4. **Common schema.** Cross-tool correlation is only possible by reducing everything to uniform fields.
-5. **Validation like in the RAG.** Just as `golden_queries` validate the index, a **detection test set** validates the engine's logic (dataset with known malicious events → the rule *must* fire).
+5. **Validation by test set.** A **detection test set** validates the engine's logic (dataset with known malicious events → the rule *must* fire).
 6. **ATT&CK as lingua franca.** Every detection/analytic maps, where possible, to an ATT&CK tactic/technique.
 7. **Usable without AI (CLI-first).** Like in PersonalFinance: the engine functions (EVTX import, log parsing, analytics, report, scoring) are **deterministic command-line tools**, executable and verifiable **without any model underneath**. AI is the *interpretation* layer above the output (explains, correlates, suggests next steps), not a dependency to run the tools. A tool that requires AI at every step becomes impractical: every new adapter/parser is born as a standalone CLI with its own test, and only *afterwards* leverages AI for interpretation.
 
@@ -104,7 +104,7 @@ Okta System Log →  parser Okta    →   ECS/OCSF       →   (embedded SQL)   
 - **Common schema**: subset of **ECS** (Elastic Common Schema) or **OCSF** — essential entities and event types (see §5).
 - **Store/compute**: **DuckDB** embedded (local columnar SQL, reads parquet/csv/json, handles millions of rows). It is the core for long-tail and correlation.
 - **Logic**: **Sigma** (vendor-agnostic rules) for detection on events/logs + **YARA** for **file/memory** matching (malware, binary artifacts) + library of parametric **analytics** in SQL (long-tail recipes). Sigma and YARA are complementary: the former looks at *what happened* (events), the latter at *what the artifact looks like* (content).
-- **Report**: Markdown with timeline, (pseudonymized) entities, ATT&CK techniques, and references to the RAG for explanations.
+- **Report**: Markdown with timeline, (pseudonymized) entities, ATT&CK techniques, and pointers to the knowledge base for explanations.
 
 ## 4. Tools we wrap (decision: wrap)
 
@@ -154,9 +154,9 @@ analysis/
 
 Privacy/git model: code/rules/analytics **versionable**; real datasets, client EVTX and reports **private** (`data/`, gitignored). Public test datasets (EVTX-ATTACK-SAMPLES) can be versioned or referenced.
 
-## 8. Validation (common thread with the RAG)
+## 8. Validation
 
-Mirror of `golden_queries`: a **detection test set** (for Sigma and YARA rules). For each known dataset (e.g. an EVTX from EVTX-ATTACK-SAMPLES containing Kerberoasting, or a sample a YARA rule must recognize), the expected outcome is declared (must fire `T1558.003` / the expected YARA rule). A runner executes the engine and verifies PASS/FAIL. Same idea: automatically validate the *soundness of the logic* when adding or modifying a rule/analytic.
+A **detection test set** (for Sigma and YARA rules). For each known dataset (e.g. an EVTX from EVTX-ATTACK-SAMPLES containing Kerberoasting, or a sample a YARA rule must recognize), the expected outcome is declared (must fire `T1558.003` / the expected YARA rule). A runner executes the engine and verifies PASS/FAIL. Same idea: automatically validate the *soundness of the logic* when adding or modifying a rule/analytic.
 
 ## 9. Incremental implementation plan
 
@@ -174,7 +174,7 @@ Vertical and narrow, to deliver value early and avoid building the "universal en
 - **Phase 1 — EVTX → detection slice.** Wrap the chosen Sigma tool on an EVTX, produce a report mapped to ATT&CK. *(This is the first concrete increment.)*
 - **Phase 2 — DuckDB + long-tail layer.** *(implemented, 2026-06-21)* DuckDB in-memory store on common schema records (`analytics/store.py`); long-tail recipes (process stacking, first-seen host/user, rare parent-child, top talkers, rare/long DNS, non-standard ports, beaconing) and cross-source correlation (timeline, host overview, shared indicators). CLI `engine/run_analytics`, test on synthetic records.
 - **Phase 3 — Second adapter + correlation.** *(DONE, 2026-07-24)* CrowdStrike export adapter (`adapters/crowdstrike.py`: detection clipboard `Key: Value` blocks + LogScale/CQL JSON incl. the `@rawstring` wrapper) and cross-source EVTX↔CrowdStrike join on host/user/time, which follows from the common schema (`analytics/correlate.py`). It was unblocked by a different input than the one it waited on: no detection *export* exists, but a detection copied out of the console is a real, checkable sample, so nothing was written on guessed field names (§6/§7). **Note (2026-08-27):** the *documentation* half of the CrowdStrike strand is gone — `cs_falcon_docs` and `docs/crowdstrike/` were removed and product questions moved to a separate project on the official MCP server. The adapter is unaffected.
-- **Phase 4 — Automatic validation.** Detection test set + runner; integration into the workflow (like the RAG auto-eval): modify a rule → test runs.
+- **Phase 4 — Automatic validation.** Detection test set + runner; integration into the workflow: modify a rule → test runs.
 - **Phase 5 — More products / YARA.** Okta System Log, **Microsoft 365 / Entra** (Entra sign-in logs, Defender for Office 365 / Exchange Online Protection), **Proofpoint** (email security / antispam), Microsoft Defender/Sentinel, etc., reusing schema and pattern *(product adapters: to do)*. **YARA implemented** (2026-06-21): `adapters/yara_scan.py` (file→common schema, technique from meta), optional dep `--extra yara`, test rule in `analysis/yara_rules/`.
 - **Phase 6 — External threat intel enrichment.** *(implemented, 2026-06-21)* `tools/enrichment/`: Shodan InternetDB (keyless) + VirusTotal (keyed, lookup only). Egress gate (§12) and blocking of non-public indicators (RFC1918 IPs, internal domains) even with egress active. MCP tools `shodan_lookup`/`vt_lookup`.
 - **Cross-cutting (2026-06-21).** Local GUI (`analysis/gui`), **baseline/diffing** (`analytics/baseline.py`: new vs known-good), **case management** (`analytics/case.py` + template §17), **compliance mapping** (`tools/compliance`: incident→GDPR/NIS2/DORA obligations).
@@ -195,7 +195,7 @@ Sigma, pySigma; Zircolite, Hayabusa, Chainsaw; DuckDB; ECS (Elastic), OCSF; EVTX
 
 Third layer, complementary to the existing two: the engine **flags** an indicator in an
 ECS record (a hash, a `destination.ip`, a `dns.question.name`), enrichment **annotates** it
-with reputation and exposure, the RAG **explains** the technique. It does not replace
+with reputation and exposure, the knowledge base **explains** the technique. It does not replace
 either; it adds external context to the indicator.
 
 ### What is integrated
@@ -287,124 +287,20 @@ Hayabusa's other subcommands, beyond `json-timeline` (Sigma detection), give fre
 
 ### 13.7 Containerized packaging
 
-The whole stack runs via `docker compose` from the repo root (`docker-compose.yml`): `qdrant` (vector DB, reuses `rag/qdrant_storage`), `rag-api` (retrieval as an HTTP service, warm models, `rag/rag-api.Dockerfile`), and `eventhound` (`analysis/eventhound.Dockerfile`, `python:3.12-slim-trixie`) — a single self-contained image with **every** tool baked in (tshark, Zeek, Hayabusa, `dotnet` runtime + EvtxECmd/RECmd/MFTECmd) so runners discover binaries via `PATH`/`.tools/` with no code change. The GUI reaches the RAG via `RAG_API_URL=http://rag-api:8600` (the HTTP path already in `app.py`, §gui). Bound to `127.0.0.1:8700` only (client identifiers, §9/§10), never exposed on the network. Code is baked into the image (no volume mount): rebuild to pick up changes.
+The stack runs via `docker compose` from the repo root (`docker-compose.yml`): a single `eventhound` image (`analysis/eventhound.Dockerfile`, `python:3.12-slim-trixie`) with **every** tool baked in (tshark, Zeek, Hayabusa, `dotnet` runtime + EvtxECmd/RECmd/MFTECmd) so runners discover binaries via `PATH`/`.tools/` with no code change. Bound to `127.0.0.1:8700` only (client identifiers, §9/§10), never exposed on the network. Code is baked into the image (no volume mount): rebuild to pick up changes.
 
 ### 13.8 Out of scope (for now)
 
 - **Timeline Explorer** — it is a Windows GUI for grouped timeline; that role is already covered by the local GUI + DuckDB.
 
-## 14. Local conversational AI engine (on-box LLM) — REMOVED 2026-09-01 (superseded by `analysis/analysis_mcp_server.py`)
+## 14. On-box conversational AI — REMOVED 2026-09-01
 
-The **third surface** of the product (§1 of the root README: 100% GUI, 100% CLI, **100% local AI**). Today the interpretation layer is *external* (Claude Code / Mistral Vibe, i.e. development tools, §1). This section designs the engine that ships *inside* EventHound and runs **on-box** — so an analyst with no external AI still gets reasoning, assessment and remediation paths over their own analysis, fully offline.
+The on-box LLM (Ollama + a small owned ReAct loop) and the vector RAG were the two heaviest,
+least-validated subsystems, and both were removed on 2026-09-01 (see `docs/roadmap.md` 1.43.0). The
+interpretation layer is now **external**: the analysis MCP server (`analysis/analysis_mcp_server.py`)
+exposes the pipeline — `analyze`, `analyze_case`, `eid_lookup` — to an external agentic harness
+(Pi, Claude Code, …) and returns pseudonymized findings (§9) via `analysis/redact.py`. Reasoning
+lives in the harness, never in a bundled model; EventHound stays deterministic and local.
 
-**Built on 2026-07-21** in the five tested steps §14.8 lays out: the AI layer (ReAct loop over Ollama native tool-calling, context packer, anonymization gate, tools), the `run_ai` CLI, and the three GUI endpoints. The section is kept as written because it is the design the implementation followed and the reasoning is still the reasoning; where it says what *will* be done, read what *was*.
-
-### 14.1 What it is — and is not
-
-- **It is** an *interpretation layer* over data the deterministic engine has **already produced**: a long-tail table, a correlation graph, a Hayabusa search result, a detection, a report. It reasons over that context, grounds the reasoning in the RAG, and proposes **insight / assessment / mitigation / next analysis steps**.
-- **It is not** a new analysis engine. It does not parse EVTX, does not compute scores by hand (§6 — it *calls* the scoring oracle), does not run detections itself. The sensors + DuckDB + Sigma remain the source of the facts; the LLM explains and connects them.
-- **It proposes, never executes** (§12): any command/query it suggests (RTR, PowerShell, FQL, a follow-up `run_*`) is surfaced as text for the analyst to run in their authorized environment — the engine has no tool that acts on real systems.
-
-### 14.2 Architecture — CLI-first, GUI as a thin layer
-
-Consistent with principle 7 ([[cli-first-usabile-senza-ia]]) and the enrichment/RAG precedent: a module callable headless, with the two GUI surfaces a thin shell over it.
-
-```
-analysis/ai/
-  engine.py        # the orchestration loop (prompt → tool calls → grounded answer)
-  ollama_client.py # thin wrapper over the Ollama HTTP API (OLLAMA_URL, default 127.0.0.1:11434)
-  tools.py         # the read-only tool registry exposed to the model (§14.3)
-  context.py       # context packer: analysis output → bounded digest (§14.4)
-  redact.py        # anonymization gate before any prompt (§14.5), reuses method/anonymization
-run_ai.py          # CLI: `run_ai --context <analysis.json> --ask "..."` and interactive REPL
-```
-
-- **CLI** (the real engine): `run_ai` takes a context source (a saved analysis/report JSON, or `--rag-only` for a pure knowledge question) and a question, returns a grounded answer with citations. Usable in a shell, no GUI, no external AI.
-- **GUI chat**: a dedicated view = a thin `POST /api/ai/chat` (SSE stream, like `/api/analyze`) over `engine.py`.
-- **GUI "AI button"**: each function's output panel gets a button that POSTs *that function's already-computed output* as the context to `/api/ai/explain`. No re-computation — it hands the existing result to the engine as context (this is why the packer §14.4 works on structured output, not raw artifacts).
-
-### 14.3 Model choice and tool-calling protocol (decision)
-
-**Model — decision: Ollama, model configurable, never hardcoded; default `qwen2.5:7b-instruct` (2026-08-29).** Requirement is **reliable native tool-calling**: grounding and scoring have to actually run (§6). From 2026-07-21 the default was `qwen2.5:14b`, on two real multi-tool queries in which it emitted tool calls where the 7B narrated them in prose. That was two data points, and `run_toolbench` was built to replace them with a rate; when it did, the rate went the other way — 7b-instruct 54/60 against 44/60, zero non-Latin-script answers against 7 of 60, 2.2x faster, with the 14b ahead only on narration by one event in 42 (`docs/analysis/performance.md`). The default now follows the corpus, on every host: `default_model()` no longer branches on RAM, because that branch answered the *hardware* question while leaving the *quality* one open, and a large host deserves the better model too.
-
-**Precedence**, resolved once in `ollama_client.configured_model()`: `EVENTHOUND_LLM_MODEL` → the stored `llm_model` setting → `default_model()`. The middle step is the **Assistant's model picker**, which writes the choice to the shared store (`tools/eventhound_config.py`), so the 14b — or any pulled model — is selected in the GUI and used by the CLI, the MCP tools and the next session as well. Selecting a model this host cannot hold is allowed and answered honestly at the moment of choice (`memory_status`): the guard belongs on the load, not on the setting. The shell asks the same seam (`setup.sh model`, `uninstall.sh --purge-models`) so what gets pulled is what gets used. The engine stays **model-agnostic** — no prompt tuned to one model's quirks; a startup check confirms the model is pulled.
-
-**Tool-calling — decision: use Ollama's native tool-calling (`/api/chat` `tools` field), wrapped in a *small* orchestration loop we own** (`method/minimal-code.md` rung 4-7: the platform feature does the calling; we own only the thin loop + registry). The loop is the classic bounded ReAct: send question + tool schemas → model emits a tool call → we execute the (read-only) tool → feed the result back → repeat until the model answers or a **hard call cap** (e.g. 6) is hit. No agent framework, no LangChain (rung 5: no dependency for what a `while` loop does).
-
-**The tools exposed are read-only and already exist** — the registry is a thin adapter over current capabilities, not new engines:
-- `rag_search(query, collection)` — the grounding tool (mandatory before any technical claim, §6). Reuses the `rag-api` HTTP service.
-- `cvss/risk/epss` — the scoring oracle (`tools/scoring/`), so numbers are never invented (§6).
-- `enrichment_lookup(indicator)` — Shodan/VT/ThreatFox, **egress-gated and public-indicators-only** (§14.5, same gate as `tools/enrichment/`).
-- `query_analysis(...)` — read-only DuckDB queries over the *current* analysis store (top long-tail rows, an episode, events for a host) so the model can pull detail on demand instead of holding it all in context.
-
-No tool in the registry mutates state or touches a real system (§12). Enrichment is the only one that egresses, and only through the existing gate.
-
-### 14.4 Context budget — the packer
-
-Local models have a small window (8k–32k). Analysis outputs (long-tail tables, correlation graphs, full timelines) do **not** fit raw. `context.py` turns each function's output into a **bounded structured digest** before it enters the prompt: top-N rows by signal, counts/aggregates instead of full tables, the key indicators (IP/user/host/hash) rather than every event, ATT&CK IDs already assigned. Detail is fetched *on demand* via the `query_analysis` tool (§14.3) rather than pre-loaded — the model asks for the rows it needs. This keeps the resident context small and pushes bulk to tool calls, which is also what makes the small-window model viable.
-
-Two things go in as **ordered sequences** rather than as top-N row lists, because their value to the model is the order and a frequency table destroys it: the unified timeline, and the **kill chain** — phases in order with their tactics, techniques and hosts, the per-host triage depth, the technique catalogue, and each phase's corroboration carried through with the label it is given everywhere else (co-occurrence in time, never a technique). The kill chain was *absent* from the digest until 2026-08-29: it was named in the packer's "not a recipe" set, which removes a key from the generic block and does nothing else, so the assistant — one of the three declared interfaces (§1) — was the only surface that could not see how far the activity reached, against four renderers that could.
-
-### 14.5 Anonymization gate — before any prompt (non-negotiable, §9)
-
-Even though the model is **local**, client data is pseudonymized **before** it enters a prompt — same discipline as a shared report (§9, [[sma-log-format-e-adapter]]). `redact.py` applies the pseudonym map (`data/pseudonym-map.md`) to the analysis **before** it is packed, so the LLM reasons over `HOST-01`/`USER-03`, never real identifiers. The order matters and this section used to describe the wrong one: `Redactor` substitutes exact substrings, so redacting the *packed* text leaves any identifier the packer's own truncation split unmatched — `SRV-FINANCE-PROD-01` cut mid-name reaches the model intact. All three callers redact first; `run_toolbench` was the last one doing it the other way round (fixed 2026-08-29). Two reasons it still matters on-box: (1) the analyst may copy the AI's answer into a shared deliverable; (2) defense in depth — the model must never *learn* to echo real identifiers. The enrichment tool keeps its own **egress gate**: only public, non-client indicators may leave the machine; the indicator classifier (§12) decides sendable-vs-sensitive, and when in doubt does **not** send. The LLM cannot bypass this — it calls the same gated enrichment function, not raw HTTP.
-
-### 14.6 Grounding, citation, and honesty (system prompt contract)
-
-The system prompt hard-codes the method (§6): ground every technical claim in a `rag_search` result and **cite the source**; get security numbers from the scoring tool, never compute them; mark anything not backed by a source as *hypothesis / to be verified*; **propose** commands, state their impact, never present them as executed (§12); prefer non-invasive triage steps first. A claim the RAG cannot support is flagged as a coverage gap, not fabricated. This is the same contract these governance files impose on the external assistants — now enforced in-product.
-
-### 14.7 Service pattern (decision)
-
-**Decision: Ollama is its own compose service, consistent with the rest of the stack.** The project is fully containerized (`docker-compose.yml`: `qdrant` + `rag-api` + `eventhound`), so the LLM follows the same model — a dedicated **`ollama` service** (image `ollama/ollama`, loopback `127.0.0.1:11434`, model store persisted in a gitignored `./ollama_storage` volume), added alongside the others (implemented in `docker-compose.yml`, 2026-07-21). We do **not** build our own `llm-api` wrapper service: unlike the RAG (which had no standalone server, hence `rag-api`), Ollama already *is* an HTTP server — wrapping it would be redundant (`method/minimal-code.md`). So `ollama_client.py` is a thin HTTP wrapper inside the `eventhound` image; `engine.py` orchestrates. The `eventhound` service reaches it via `OLLAMA_URL=http://ollama:11434` (compose network); for host dev without Docker it defaults to `http://127.0.0.1:11434`.
-
-**Notes.** The model is **not** baked into the image (too heavy) — it is pulled once into the volume (`docker exec eventhound-ollama ollama pull $EVENTHOUND_LLM_MODEL`) and persists. **Hardware:** on Docker Desktop for macOS containers have **no GPU/Metal access** → the containerized Ollama runs CPU-only (slower than host Ollama, which uses Metal); on a Linux host with NVIDIA the commented `deploy` GPU block in the service enables acceleration. The engine stays optional (§14.9): the other services run fine whether or not a model is pulled.
-
-### 14.8 Incremental plan (when built)
-
-1. **Skeleton, RAG-only, CLI — DONE (2026-07-21).** The package (ollama_client.py thin HTTP client over `OLLAMA_URL`; `tools.py` read-only registry with `rag_search` reusing the GUI's rag-api-HTTP→RAG-venv-subprocess fallback; `engine.py` the owned ReAct loop + the §14.6 system-prompt contract) + the `run_ai` CLI (`run_ai "question"`, `--model/--url/--show-calls/--json`, degrades with guidance + exit 3 when Ollama/model absent). A test pinned the loop offline with a scripted fake client (dispatch, result feedback, JSON-string args, unknown-tool recovery, call-cap→forced answer, RAG compaction) + an e2e that auto-skips without a pulled model; wired into `tools/check.sh` (green). No analysis context, scoring/enrichment tools or redaction gate yet — those are steps 2-3.
-2. **Context packer + `query_analysis` — DONE (2026-07-21).** `ai/context.py` (`load_analysis` + `pack_analysis`: summary + top-N rows per non-empty recipe + correlation highlights, bounded by a char budget with an explicit truncation note, raw `records` never dumped). Two read-only tools added to the registry: `query_analysis` (parameterized ops `events_for_host`/`events_for_user`/`by_event_code`/`search` over a DuckDB store rebuilt from the saved `records` — no free-form SQL, injection-safe by construction; gated on a loaded context) and `eid_lookup` (Windows Event ID → the channel-aware SOT `windows_eventid`, unmapped→"verify", so the model stops confabulating EID semantics — the concrete §14.9 fix). `run_ai --context <analysis.json>` loads+packs+wires it; `engine.run(context=…)` injects the digest as data-to-interpret (prompt-injection note in-line). Tests extended (packer budget, all query ops, eid mapped/unmapped, registry gating). Validated e2e on a synthetic analysis: the model called eid_lookup and reasoned over the context. NB (§14.9): the 7B model sometimes *describes* a tool call in prose instead of emitting it — a model-quality limit, not a loop bug (the loop/tools are test-pinned); mitigated by a stronger model or step-3 tightening.
-3. **Scoring + enrichment tools + redaction gate — DONE (2026-07-21).** `ai/redact.py`: map-based anonymization gate reading `data/pseudonym-map.md` (the same SOT as check-leaks, identical column/placeholder filtering) — case-insensitive, longest-first substitution, recursive over the loaded analysis (context digest AND the records backing query_analysis, so the whole downstream stays in pseudonym space). No heuristic guessing (a heuristic can't tell a client IP from a public malicious one, §9). Empty/absent map → inactive no-op with an explicit CLI warning (§9 honesty — an empty map is not a safe map). Wired into `engine.run(redactor=)` (redacts question + context + every tool result before the model) and `run_ai` (redacts the analysis at load; `--enrich` opt-in). Registry gained `cvss_score`/`risk_score` (the deterministic oracle, numbers never by hand §6) and `enrich_indicator` (egress-gated, public-indicators-only — the oracle's own guard refuses private/client indicators even here, §9). Tests extended incl. the §14.5 property: **a real identifier never reaches the model in plaintext** (question + context + tool output all pseudonymized). e2e-validated. Steps 4-5 (GUI chat + AI button) remain.
-4. **GUI chat — DONE (2026-07-21).** `POST /api/ai/chat` (SSE) — a thin `_ai_stream` over `ai.engine.run` mirroring `_analyze_stream` (queue + executor so the blocking loop doesn't stall the event loop); emits a `start` event (model + redaction status), live `tool` events, then `complete`. Anonymization gate applied server-side (§9); an optional `context` (a full analysis result) is packed + records wired for query_analysis. Frontend: an **Assistant** view (sidebar + chat UI, `#ai-messages`/`#ai-input`, "use current analysis" checkbox gated on `lastResult`), a reusable POST-SSE consumer (`aiStream`), a `redaction_active` notice, and SAFE rendering of untrusted model output (escape + fenced-code only). Existing `test_gui` contract preserved; new AI test passes both with a pulled model and as a clean skip.
-5. **Per-function AI button — DONE (2026-07-21).** `POST /api/ai/explain` (SSE) hands one function's already-computed output to the engine as context. Reusable `aiExplain(fn, output)` / `aiButton(fn, getOutput)` helpers; wired on the dashboard ("AI · explain this analysis" → the whole result) and the Correlation Highlights panel ("AI" → episodes/shared-indicators/host-overview). Same anonymization gate and SSE path as chat; extend to more panels (Hayabusa search, a detection) by dropping in `aiButton` — the pattern is in place.
-
-Each step is CLI-first and tested before the GUI layer; no step ships without the anonymization gate once real context is involved.
-
-**Refinements — DONE (2026-07-21).** (a) **Token streaming**: `ollama_client.chat_stream` (NDJSON) + `engine.run(stream=True)` emit `token` events; the loop is unchanged (a `_turn` helper streams or blocks). GUI forwards `token` SSE (live plain-text in the bubble, replaced by the rendered final on `complete`); CLI `run_ai --stream`. Tool-call turns carry no tokens; only the answer streams. (b) **Model picker**: `GET /api/ai/models` (Ollama `/api/tags` + default) feeds a GUI dropdown; the selected model rides the `model` field the `/api/ai/*` endpoints already accept (also how the tests smoke on a fast model without changing the 14b default). Both tested (`test_ai` streaming path with a fake streaming client; `test_gui` models endpoint).
-
-### 14.9 Open decisions / risks
-
-- **Small-model reliability — the mitigation was the wrong model, and measuring said so.** 7–8B tool-calling proved shaky in two ad-hoc queries (the 7B narrated tool calls in prose instead of emitting them, and confabulated EID 4656), and the mitigation applied was to default to the 14b. The corpus then measured both and reversed it: the default is **`qwen2.5:7b-instruct`** since 2026-08-29 (§14.3), with the 14b selectable. The loop is model-agnostic so the model is a swappable lever, and the hard call cap + the read-only registry bound the blast radius. A wrong security claim has real cost (§6) — the engine must **degrade to "insufficient grounding"** rather than confabulate; `eid_lookup`/`rag_search` returning "unmapped/no support" is the honest path. **That decision rested on two ad-hoc queries until 2026-07-24**, when `eval/toolcall_prompts.json` + `engine/run_toolbench.py` turned it into a rate: 20 labelled prompts, 14 requiring a named tool, replayed N times per model, separating *did not call* from *narrated a call it never made*. Figures and the residual failure modes are in [`docs/analysis/performance.md`](../docs/analysis/performance.md); the harness needs Ollama, so its test skips honestly while the scoring logic is pinned offline against a scripted client (`tests/test_toolbench.py`).
-- **Latency.** On CPU, a 7–8B model + several tool round-trips is seconds-to-tens-of-seconds (cf. the ~8s RAG cost, [[eventhound-rebrand]]). Acceptable for forensic/batch use (§1, not real-time); stream tokens in the GUI so it feels responsive.
-- **Hardware floor — was documentation, is now enforced (2026-08-28).** This bullet used to read "document
-  a minimum". It was never documented and never checked, and on 2026-08-28 the gap was collected: Ollama
-  loaded a 9.1 GiB model onto a 16 GB Mac with 2.3 GiB free and swap at 92%, and the graphical session died.
-  Ollama had logged `system_limited=true` and loaded regardless — the failure was ours for not looking, not
-  its for telling us. the memory guard now measured RAM, available memory and swap pressure;
-  `default_model()` answers with the model the corpus supports (§14.3, one answer on every host); `memory_preflight()` refuses a load that would not
-  fit, inside `chat`/`chat_stream` so no caller can forget it. The RAG side follows the same rule and
-  learned it the hard way: its guard sat in `retrieve`'s three lazy getters, which covered queries and
-  left `evaluate` and `ingest` — the heaviest load of the three — constructing embedders straight past
-  it, and the `rag-api` image did not contain `tools/` at all, so there the guard was permanently
-  inert. Since 2026-08-29 it lives in `Embedder`'s constructor, so the dense model — the
-  2.1 GiB one, and the one every path loads — cannot be allocated by a caller who forgot to ask.
-  The reranker (1.1 GiB) is still guarded at its single lazy getter in `retrieve`, because wrapping
-  a cross-encoder in a class to gain a constructor would be structure bought for one call site; BM25
-  is 88 KB and deliberately unguarded. The image is built from the repository root so the shared
-  module is actually present — and its `.dockerignore` is an allowlist that must never re-include a
-  parent directory to help the walker descend: Docker re-tests patterns against parent prefixes,
-  `!` patterns included, so `!rag` pulled 5.97 GB back into a context meant to hold 19 files. It **fails open** on anything it cannot
-  measure — an engine grounded because `vm_stat` would not parse is a worse outage than the crash it
-  prevents — and `EVENTHOUND_ALLOW_LOW_MEMORY=1` is the operator's override. The engine stays **optional**:
-  GUI and CLI are 100% functional without it (the three surfaces are independent, §1).
-- **The 14b default was not supported by our own corpus — CLOSED 2026-08-29.** The RAM rule above was a
-  *hardware* argument and settled nothing about quality. The quality argument had been sitting unactioned
-  since 2026-07-24: `docs/analysis/performance.md` measured 7b-instruct at 54/60 cases against the 14b's
-  44/60, zero non-Latin-script answers against 7 of 60 (the 14b answered English prompts in Thai —
-  coherent, grounded, unreadable), and 2.2x lower latency, with the 14b ahead on narration alone by one
-  event against three out of 42. `default_model()` now returns 7b-instruct on every host and the RAM branch
-  is gone, because a large machine deserves the better model rather than the heavier one. The 14b is
-  selectable and the choice persists (§14.3). Deliberately **not** decided as a side effect of the crash
-  fix a day earlier: a memory incident is not evidence about model quality, and letting it stand in for
-  one would have reached the right answer for a reason that does not hold.
-- **Prompt injection from analyzed data.** Log/EVTX content is untrusted input that enters the context; the boundary is the one `tools/check-injection.sh` guards on ingest. The system prompt must treat packed context as *data to analyze, not instructions to follow*; the read-only tool registry is the structural backstop (even a hijacked model can't act).
-- **Volume Shadow Copies / detection via custom-map** (e.g. CurveBall) — niche; rule-based detection is already covered by Hayabusa+Sigma.
+The design history of the removed engine (14.1–14.9) is preserved in the changelog above
+(0.14.0–0.35.0); it is no longer part of the shipped product.

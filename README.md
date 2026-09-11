@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.8
-updated: 2026-08-30
+version: 1.9
+updated: 2026-09-11
 changelog:
+  - 1.9 (2026-09-11) — publication sweep after the RAG/on-box-LLM removal of 2026-09-01. The clone command now names this repository (`EventHound-Blue` — the old `EventHound` repo is deleted); a new section documents the analysis MCP server (`analyze` / `analyze_case` / `eid_lookup`, §9 pseudonymization and the `_privacy` warning); and the two known-gaps clauses that still described the removed RAG are gone — the changelogs above keep the removal in the past tense, where it belongs.
   - 1.8 (2026-08-30) — the README as a document for someone who did not write it. New **Development and tests** (the one runner, the two per-clone setup steps, the per-suite commands, the `uv sync --extra` trap where naming one extra uninstalls the other, and the clean-clone check — `git clone`, not `git archive`, which has no `.git` and answers a different question) and **Troubleshooting** (port, no-reload GUI, GitHub rate limit, the two guards that are meant to be loud on a fresh clone, the memory refusal, the shared Ollama daemon, a source that produced nothing). Three claims corrected against the code rather than reread: "Three interchangeable surfaces" survived in "Using it" after the opening paragraph was rewritten to stop saying it; the Licence section still listed **vendor documentation** among the RAG material, removed on 2026-08-27; and `./setup.sh all` was presented as "and you're done" while leaving Qdrant empty — the RAG index is built by a separate step, from PDFs that are not in this repository, and that is now said where the promise is made rather than 200 lines below it. The demo's `--reset` default is documented (it is what stopped the README's own first command from failing on its second run). Left alone deliberately: "three adversarial rounds, all dirty, counter at zero" is correct — the roadmap entries 1.30-1.32 are the four scopes INSIDE the third round, not three more rounds.
   - 1.7 (2026-08-27) — CrowdStrike and SonicWall product documentation removed from the RAG (collections `cs_falcon_docs` and `sonicwall_docs` deleted, `docs/crowdstrike/` and `docs/sonicwall/` removed): both products are moving to a separate project built on their official MCP servers. The RAG keeps what grounds the analysis itself — frameworks, regulations, ACN. The CrowdStrike *ingest adapter* stays: it parses an export the analyst already holds, like every other artifact source.
   - 1.6 (2026-07-24) — project licensed MIT (LICENSE) with NOTICE.md separating what is redistributed here (the Material Symbols icon paths, Apache-2.0) from the tools that are only driven and downloaded at install time; new "Licence" section.
@@ -105,6 +106,31 @@ shipped enabled: what your agent launches should be your decision, not a default
 My own assistant configuration is deliberately **not** in this repository: it is personal workflow,
 not something you should have to download to use the suite.
 
+## The analysis MCP server
+
+EventHound ships **one** MCP server — `analysis/analysis_mcp_server.py` — that exposes the analysis
+pipeline to an external agentic harness (Pi, Claude Code, Cursor, …). The reasoning lives in the
+agent; EventHound stays a deterministic local tool:
+
+```bash
+cd analysis && uv run python analysis_mcp_server.py    # stdio MCP server
+```
+
+It exposes three tools:
+
+- **`analyze`** — run the full pipeline over artifact paths and return the correlated findings
+  (timeline, bridges, clusters, kill chain, host overview, technique catalogue).
+- **`analyze_case`** — run the pipeline against a persistent case (`analysis/cases/`).
+- **`eid_lookup`** — resolve a Windows Event ID against the channel-aware vocabulary.
+
+Responses are **pseudonymized** (§9): hosts, users, internal IPs and domains are replaced with
+stable pseudonyms via `data/pseudonym-map.md` before the payload reaches the agent. If the map is
+empty the response carries a `_privacy` warning — treat that as a stop signal, not a formality.
+
+The same three tools, plus the scoring, compliance and enrichment oracles, are also available as
+native MCP tools; the full `.mcp.json` block is in [`AGENTS.md`](AGENTS.md). Nothing is enabled by
+default — what your agent launches is your decision.
+
 ## Conventions
 
 Comments across the codebase cite rules by number — `(§9/§10)` where client data is handled, `(§6)` where a security figure is produced, `(§12)` where a command is proposed rather than run. Those citations resolve in **[`method/conventions.md`](method/conventions.md)**: anonymization, source hierarchy, the git/privacy boundary, the posture on commands, hygiene. Reading it first makes the rest of the code read as intended. The engineering counterpart is [`method/minimal-code.md`](method/minimal-code.md).
@@ -136,7 +162,7 @@ Git/privacy model (the project uses git; `data/` and the other sensitive directo
 The whole stack runs natively on **macOS and Linux** — **no part of EventHound requires Docker**.
 
 ```bash
-git clone https://github.com/Stinocon/EventHound.git && cd EventHound
+git clone https://github.com/Stinocon/EventHound-Blue.git && cd EventHound-Blue
 ./setup.sh all              # install what's missing, start everything, then verify
 ```
 
@@ -352,8 +378,7 @@ What that means in practice, if you are deciding whether to point this at someth
   the binaries and a sample, so a green suite proves the adapters and the demo — not the headline
   source. `-rs` shows you which.
 - **Known gaps carried deliberately**, each with its reasoning in [`docs/roadmap.md`](docs/roadmap.md):
-  NIST/SANS/ISC2 absent from the RAG; `normative` and `acn` measured by no golden query at all; the
-  kill chain derived only from ATT&CK evidence, which the endpoint sources are alone in carrying;
+  the kill chain derived only from ATT&CK evidence, which the endpoint sources are alone in carrying;
   registry findings stored but not yet contributing an artifact entity.
 
 ## Licence
