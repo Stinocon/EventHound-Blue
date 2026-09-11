@@ -67,7 +67,12 @@ list_files() {
 }
 get_content() {
   if [ "$MODE" = "--tracked" ]; then grep -Iq . "$1" 2>/dev/null && cat "$1" 2>/dev/null  # -Iq: salta i binari
-  else git show ":$1" 2>/dev/null; fi
+  else
+    # Staged blobs need the same binary guard: `git show` of a PNG (docs/screenshots/) fed to nfc
+    # raised UnicodeDecodeError tracebacks on every commit. `grep -I` treats a NUL byte as binary.
+    c="$(git show ":$1" 2>/dev/null)" || return 1
+    if printf '%s' "$c" | grep -Iq . 2>/dev/null; then printf '%s' "$c"; fi
+  fi
 }
 
 # Real customer identifiers from pseudonym map (column "reale" = 3rd field of md table).
