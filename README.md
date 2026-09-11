@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.12
+version: 1.13
 updated: 2026-09-11
 changelog:
+  - 1.13 (2026-09-11) — the README is re-read and tightened: a duplicated "Privacy and anonymization" heading and a broken "Backup" list (said "three things", listed one) are repaired, the gate is described as 13 sections rather than 16, several garbled sentences are reworded, and "Development and tests" + "Troubleshooting" move to docs/development.md and docs/troubleshooting.md to shorten the front page.
   - 1.12 (2026-09-11) — a realistic, literature-grounded sample intrusion is added alongside the correlation demo: `analysis/demo/generate_samples.py` writes a credential-theft/lateral-movement scenario mapped phase-by-phase to ATT&CK techniques, Event IDs and SigmaHQ rules, documented in `docs/samples.md` with screenshots in `docs/screenshots/`.
   - 1.11 (2026-09-11) — final release pass: the product version is v1.0.0 (`/api/health` and exported bundles report 1.0.0, matching the tag), and the demo is described as nine source types (the previous "ten" double-counted the two appliance logs).
   - 1.10 (2026-09-11) — the maturity section stops reading as "never tested, don't trust": it states plainly that this is a proof of concept, tested lightly on lab cases (public datasets, synthetic captures, the simulated incident), with the Okta/osquery adapters named as the least-exercised. A leftover Troubleshooting entry about the removed on-box assistant is gone, and a garbled `install`/Hayabusa bullet is repaired.
@@ -152,7 +153,6 @@ Development of EventHound is done with AI assistants under those same rules; the
 | `tools/` | deterministic tools: scoring (CVSS/EPSS), compliance (GDPR/NIS2/DORA), enrichment (Shodan/VT), workspace hygiene (`check.sh`, leak detection, injection scanning) | versioned |
 
 ## Privacy and anonymization
-## Privacy and anonymization
 
 Real data is sensitive. Work is done with **stable pseudonyms** (hosts, users, IPs, domains → `HOST-01`, `USER-01`, …); the real↔pseudonym mapping lives only in `data/pseudonym-map.md` (private). Full rules in `method/anonymization.md`.
 
@@ -197,7 +197,7 @@ The case is rebuilt from scratch on every run (`--reset`, the default): without 
 re-added the same nine sources to the same case and the store refused the batch, so the README's own
 first command failed the second time anyone tried it.
 
-The report lands in `reports/`, and the demo declares its own infrastructure address — in this
+The report lands in `analysis/reports/`, and the demo declares its own infrastructure address — in this
 estate the DC is also the DNS resolver, as on most Windows networks — so the incident cluster names
 the four hosts that took part rather than the whole network.
 
@@ -220,7 +220,8 @@ uv run python -m engine.run_case new c1 --evtx sec.evtx               # persiste
 uv run python analysis_mcp_server.py                                  # MCP: analyze / analyze_case / eid_lookup
 ```
 
-**Cases — work that survives the session, and the default.** A bundle keeps the conclusions; a **case** keeps the data. It is a directory under `analysis/cases/` with a DuckDB of the events plus notes, so sources can be added over several days, an analysis can be reopened as it was, and two cases can be compared. Every analysis lands in one without being asked to — the correlation worth having happens *between* uploads, so behind an opt-in checkbox the default was the experience where nothing correlates. Each upload then re-analyses the whole case and reports **what changed**, and the gateway/proxy/resolver addresses can be declared so they stop bridging every host to every other:
+**Cases — work that survives the session, and the default.** A bundle keeps the conclusions; a **case** keeps the data. It is a directory under `analysis/cases/` with a DuckDB of the events plus notes, so sources can be added over several days, an analysis can be reopened as it was, and two cases can be compared. Every analysis lands in one without being asked to — the correlation worth having happens *between* uploads, and if a case were opt-in the default would be the experience where
+nothing correlates. Each upload then re-analyses the whole case and reports **what changed**, and the gateway/proxy/resolver addresses can be declared so they stop bridging every host to every other:
 
 ```bash
 uv run python -m engine.run_case new incident-042 --title "SMA compromise" --evtx sec.evtx
@@ -248,7 +249,7 @@ same store, so a key entered in the GUI is already in place for the CLI and the 
 versa:
 
 ```bash
-python3 tools/eventhound_config.py list            # masked status of every service + settings
+python tools/eventhound_config.py list            # masked status of every service + settings
 python tools/eventhound_config.py set virustotal   # prompts without echoing the key
 python tools/eventhound_config.py set-setting allow_egress true
 ```
@@ -268,82 +269,26 @@ For non-macOS hosts or a reproducible deployment, the root `docker-compose.yml` 
 
 ## Backup and moving to another machine
 
-The **code** travels with the repo; three things do not (all gitignored) and must be reprovisioned:
+The **code** travels with the repo; four things do not (all gitignored) and are either recreated or
+backed up separately:
 
-- **`data/`** (real client data + `pseudonym-map.md`) — private, never leaves the machine.
+- **`data/`** — real client data + `pseudonym-map.md`. Private, never leaves the machine: back it up
+  on your own terms, outside git.
+- **`analysis/.tools/`** — the downloaded binaries (Hayabusa, the Eric Zimmerman tools, Zeek,
+  tshark). Recreated by `./setup.sh install`.
+- **`analysis/reports/` and `analysis/cases/`** — produced output and stored cases. Local-only by
+  design; copy them yourself if you want them on another machine.
+- **Python environments** (`.venv/`) — recreated by `uv sync`.
 
 ## Development and tests
 
-One runner covers everything, and it is what "green" means here:
-
-```bash
-tools/check.sh                 # 16 sections: leak + input/trust guards, doc guards, engine suite,
-                               # GUI (HTTP + JS), scoring/enrichment/compliance golden
-tools/check.sh --props         # + Hypothesis property tests for the scoring oracle
-tools/check.sh --bench         # + the quick performance profile
-```
-
-Two things to do once per clone:
-
-```bash
-git config core.hooksPath tools/git-hooks     # pre-commit leak scan (§9)
-tools/check-config-integrity.sh --update      # snapshot the trust surface; the baseline is local,
-                                              # not versioned, so it is absent until you make it
-```
-
-The individual suites, when you want one of them on its own:
-
-```bash
-cd analysis     && uv run pytest tests/ -q          # engine; without pytest the gate runs the same
-                                                    # files as plain scripts, minus the coverage number
-cd analysis/gui && uv run python tests/test_gui.py  # the HTTP layer, FastAPI TestClient
-cd analysis/gui && node --test tests/*.test.js      # the pure JS in static/lib.js
-```
-
-`uv sync --extra dev` installs pytest and coverage; `--extra yara` installs `yara-python`. **Pass
-both together** (`uv sync --extra yara --extra dev`) — `uv sync` resolves the environment to exactly
-what you name, so asking for one extra alone uninstalls the other.
-
-Two things the engine's own tests cannot tell you, and how to ask them instead:
-
-```bash
-cd analysis && uv run python -m engine.run_demo     # then READ the report — every serious defect
-                                                    # of the last month surfaced by looking at it
-d=$(mktemp -d) && git clone . "$d/EventHound" && (cd "$d/EventHound" && tools/check.sh)
-```
-
-That second line is not ceremony. A gate run in the tree where the installer has already run is a
-gate run against a machine, not against the repository: it is how a hard check that fails in every
-fresh clone stayed green here for weeks. Use `git clone` — a `git archive` extraction has no `.git`
-and answers a different question.
+One runner covers everything, and it is what "green" means here: the gate, the per-clone setup, the
+per-suite commands, and the fresh-clone check that catches what a tree with the installer already
+run cannot — all in [`docs/development.md`](docs/development.md).
 
 ## Troubleshooting
 
-- **Port 8700 already in use.** `./setup.sh down gui` stops the one this project started (its pid is
-  in `.run/gui.pid`). If something else owns the port, `analysis/gui/serve.sh` honours
-  `ANALISI_GUI_PORT` — but `./setup.sh up gui` hardcodes 8700, so start it through `serve.sh`
-  directly when you need another port.
-- **Edited Python and the GUI did not change.** The server does not reload:
-  `./setup.sh down gui && ./setup.sh up gui`. Editing `static/index.html` only needs a browser reload.
-- **`install` could not fetch Hayabusa.** It names the cause: no network, GitHub's unauthenticated
-  releases API rate-limiting you (60 requests an hour per address — wait, or download the release
-  yourself into `analysis/.tools/`), or a release whose assets no longer match the expected name.
-- **`install` ended with a FAILED list.** It prints a summary of what was installed, skipped and
-  failed, and exits non-zero if anything failed — a half-installed system and a complete one used to
-  end identically. `./setup.sh all` still starts what it has and still runs `doctor` afterwards: the
-  the optional tools are not a reason for nothing to
-  start. `doctor` then names what is missing and what it costs.
-- **Which build of Hayabusa / the EZ tools is this?** `.run/install-manifest.json` records
-  the version and sha256 of everything `install` downloaded. Nothing pins those downloads — that is
-  an open question, not a solved one — but what was taken is written down.
-- **The trust-surface guard complains on a fresh clone.** Expected: the baseline is local by design.
-  Generate it once (above). It is a soft check and never blocks.
-- **The leak guard reports PARTIAL.** Also expected until `data/pseudonym-map.md` exists — with no
-  map there are no identifiers to search for, and the guard says so rather than reporting a pass it
-  did not earn.
-- **A source produced no records and no error.** Check the warnings line above the results: a missing
-  tool now names itself and says what it costs. If Zeek is absent, PCAP analysis runs on tshark alone
-  and the application layer is missing — that is reported, not silent.
+Common problems and their answers are in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
 ## Status
 
