@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.13
+version: 1.14
 updated: 2026-09-11
 changelog:
+  - 1.14 (2026-09-11) — the attack-map and dashboard screenshots are shown inline in "Using it", so the first thing a reader sees after the demo is what the product draws.
   - 1.13 (2026-09-11) — the README is re-read and tightened: a duplicated "Privacy and anonymization" heading and a broken "Backup" list (said "three things", listed one) are repaired, the gate is described as 13 sections rather than 16, several garbled sentences are reworded, and "Development and tests" + "Troubleshooting" move to docs/development.md and docs/troubleshooting.md to shorten the front page.
   - 1.12 (2026-09-11) — a realistic, literature-grounded sample intrusion is added alongside the correlation demo: `analysis/demo/generate_samples.py` writes a credential-theft/lateral-movement scenario mapped phase-by-phase to ATT&CK techniques, Event IDs and SigmaHQ rules, documented in `docs/samples.md` with screenshots in `docs/screenshots/`.
   - 1.11 (2026-09-11) — final release pass: the product version is v1.0.0 (`/api/health` and exported bundles report 1.0.0, matching the tag), and the demo is described as nine source types (the previous "ten" double-counted the two appliance logs).
@@ -205,6 +206,14 @@ Loading the evidence one source at a time is the better demonstration: the corre
 arrives, and the GUI's Cases view can step through it without touching the terminal. What the demo does **not** exercise is stated on every run — EVTX arrives as the JSONL Hayabusa emits rather than through the binary (pass `--evtx-dir` with real `.evtx` to include it), and a missing tshark or `yara-python` is reported, never quietly worked around.
 
 **GUI** (`http://127.0.0.1:8700`): upload EVTX / PCAP / registry / logs / THOR reports per view, analyze, then read the **Attack Map** — entities and how they are linked, in kill-chain order, with a phase-by-phase account underneath and a click through to the timeline — plus the dashboard for cross-source correlation, and export from **Report & Bundle**. **Load Demo Case** in the Cases view fills it with the simulated incident described above, with nothing to upload. The in-app **Help** view is the per-view walkthrough; the correlation model (normalization → confidence → clusters) is documented in [`docs/analysis/correlation.md`](docs/analysis/correlation.md), and the hunting playbook in [`docs/analysis/threat-hunting-evtx.md`](docs/analysis/threat-hunting-evtx.md).
+
+What it looks like — the **attack map** (entities linked in kill-chain lanes, the phase-by-phase
+account underneath) and the **dashboard** (cross-source correlation ranked by confidence), both over
+the simulated incident:
+
+| Attack map | Dashboard |
+|------------|-----------|
+| [![Attack map](docs/screenshots/gui-map.png)](docs/screenshots/gui-map.png) | [![Dashboard](docs/screenshots/gui-dashboard.png)](docs/screenshots/gui-dashboard.png) |
 
 **CLI** (from `analysis/`, everything the GUI does):
 
