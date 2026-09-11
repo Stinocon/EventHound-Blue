@@ -11,9 +11,14 @@ exported analysis bundle, so an archived case records which build produced it.
 
 ## Unreleased
 
-Everything since the last tag. The first tag has not been cut yet — see
-[README, "How mature is it, concretely"](README.md#how-mature-is-it-concretely) for what the project
-does and does not claim about itself today.
+Nothing yet.
+
+## v1.0.0 — 2026-09-11
+
+The first tagged release. What landed between the first commit and this tag is summarised below;
+the reasoning is in [`docs/roadmap.md`](docs/roadmap.md). See [README, "How mature is it,
+concretely"](README.md#how-mature-is-it-concretely) for what the project does and does not claim
+about itself.
 
 - **The RAG and the on-box LLM are gone.** The vector knowledge base (Qdrant + fastembed + rerank)
   and the local Ollama conversational engine were the two heaviest, least-validated subsystems. The

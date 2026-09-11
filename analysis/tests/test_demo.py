@@ -77,7 +77,7 @@ def run() -> int:
             if src == "yara" and not tools["yara"]:
                 continue
             assert recs, f"source {src!r} contributed no records: {errors}"
-        assert len(records) > 40, f"only {len(records)} records from ten sources: {errors}"
+        assert len(records) > 40, f"only {len(records)} records from nine sources: {errors}"
 
         # The whole result must survive plain json.dumps. Every consumer that leaves the process
         # serialises it that way — the GUI's SSE completion, the case endpoint, the exported bundle

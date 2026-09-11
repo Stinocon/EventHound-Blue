@@ -1,7 +1,7 @@
 ---
 title: EventHound — analysis and correlation engine
 updated: 2026-09-11
-version: 0.13.0
+version: 0.13.1
 related_files:
   - analysis/DESIGN.md
   - analysis/schema/common-schema.md
@@ -9,6 +9,7 @@ related_files:
   - docs/analysis/threat-hunting-evtx.md
   - docs/analysis/performance.md
 changelog:
+  - "0.13.1 — 2026-09-11 — the demo is described as nine source types, not 'ten real source files'."
   - "0.13.0 — 2026-09-11 — RAG/LLM removal reflected in the body, not only the changelog: the Validation section no longer frames itself as a mirror of the RAG golden queries; the performance section drops the tool-call corpus (the removed `run_toolbench`/`eval/toolcall_prompts.json`); packaging names the single-image `eventhound` compose stack and the platform-neutral `uninstall.sh`."
   - "0.12.0 — 2026-08-30 — `--json-out PATH` is the canonical way to write JSON from the nine CLIs that took a path (`--json PATH` still works, deprecated, and says so once on stderr); `run_case new|add` reached seven of the eleven sources and now shares `run_report.add_source_args`, so MFT, osquery, CrowdStrike and YARA evidence can enter a persistent case from the CLI. Adapter failures report the tool's own message instead of the bare exception class, and a missing Zeek is stated rather than passed over."
   - "0.11.0 — 2026-07-24 — benchmarks documented (engine/run_bench.py + engine/run_toolbench.py + eval/toolcall_prompts.json): the pipeline profile, the tool-call corpus and where the measured figures live."
@@ -348,7 +349,7 @@ uv run python -m engine.run_logs auth.log --fmt syslog                   # syslo
 
 A fresh clone can analyse nothing: there is no evidence in the repository and there never will be
 (§9/§10). `demo/scenario.py` closes that gap by *declaring* one intrusion — estate, chain, timings,
-the bridges it must produce — and writing it out as ten real source files in pure stdlib: two
+the bridges it must produce — and writing it out as nine source types in pure stdlib: two
 appliance logs, an Okta export, the JSONL Hayabusa emits, a `.reg`, a THOR report, a CrowdStrike
 clipboard export, an osquery result log, a YARA rule with the artifact it matches, and a capture
 built packet by packet. Files, not records: generating records would prove the store and the
