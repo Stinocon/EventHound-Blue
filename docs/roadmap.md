@@ -1,13 +1,14 @@
 ---
 title: EventHound roadmap — what is built, what is open
 updated: 2026-09-11
-version: 1.44.0
+version: 1.44.1
 linked_files:
   - README.md
   - analysis/DESIGN.md
   - method/conventions.md
   - docs/analysis/performance.md
 changelog:
+  - "1.44.1 (2026-09-11) — the demo is described as nine source types, not 'ten real source files'."
   - "1.44.0 (2026-09-11) — publication sweep after the RAG/LLM removal. The Built section stops describing the removed vector RAG and on-box LLM (a Knowledge base bullet and the MCP interface take their place); the Publication blocker open item is closed (the new repo disposed of it); the `knowledge_cyber` RAG entry is dropped; and the closed decisions gain the removal itself, reframe 'native over containers' without the 14B rationale, and drop the RAG phrasing from the no-vendor-docs decision. The 1.0.0–1.43.0 changelog above keeps the removal and everything before it in the past tense."
   - "1.43.0 (2026-09-01) — the two heaviest, least-validated subsystems are removed: the vector RAG and the on-box LLM. The RAG (Qdrant + fastembed + cross-encoder rerank + rag-api, a 3.2 GB model cache) existed to ground questions in ATT&CK/GDPR/NIS2/ACN — but ATT&CK was already vendored as attack_map.json and the rest is a few markdown indexes under method/. The knowledge base is now plain markdown, read directly. The on-box LLM (Ollama + tool orchestration + memory guard + redaction + toolbench) was the least reliable part — the toolbench itself measured that the 14b narrates tool calls and neither model refuses evasion reliably. Replaced by an **analysis MCP server** (analysis/analysis_mcp_server.py: analyze / analyze_case / eid_lookup) that exposes the pipeline to an external agentic harness (Pi, Claude Code, …) and returns pseudonymized findings (§9) via a shared redact.py. One agent file stays: AGENTS.md; CLAUDE.md/AGENTS.local.md/.claude/effort-dispatch and the MCP/trust-surface machinery are gone. Gate green, demo + corpus green."
   - "1.42.0 (2026-09-01) — R6-A follow-through: the twelve defects that round left OPEN are closed, with regression tests. In consequence order from 1.41.0: (1) Zeek notices join on `uid` (notice.log has no `conn` column — the old join key made every notice unreachable) and now reach a record; (2) the enrichment indexes are LISTS, not one-slot dicts, so a keep-alive connection's several HTTP requests / DNS answers become one record each instead of collapsing to the last; (3) the `.reg` layer decodes `hex(1)`/`hex(2)` — regedit writes REG_SZ/REG_EXPAND_SZ as UTF-16LE hex — so the indicator layer now fires on a `REG_EXPAND_SZ` value (the one type regedit uses for paths with environment variables); (4) a LogScale export saved as a JSON ARRAY is detected as logscale instead of falling through to the clipboard parser and yielding nothing; (5) `_LOGSCALE_MAP` gained `ImageFileName`/`CommandLine`/`DomainName`/`RemoteAddressIP4`; (6) Hayabusa's abbreviated tactic vocabulary (`DefImpair`/`CredAccess`/…, grounded in its `config/mitre_tactics.txt`) is normalized to ATT&CK names, so a tactic-only rule resolves its phase instead of carrying an opaque string; (7) `rule.name` is a store column (YARA rule, Zeek notice) and YARA no longer stamps the matched file as `process.name`; (8) osquery `remote_address` → `destination.ip`; (9) the three timestamp defects: THOR's year fallback is the report's mtime (not `datetime.now().year`), and MFT/RECmd timestamps are normalized to ISO-8601 (space→T, 7-digit→6-digit fraction) in a shared `ez_json.norm_ez_ts`. Gate green (107 passed, 4 skipped, 73% coverage); demo end-to-end and the 15-case/33-check correlation corpus both green. Schema 0.9.0."
@@ -75,7 +76,7 @@ SVG, with a deterministic phase-by-phase narrative, rendered once for both the H
 GUI. An edge is co-occurrence, never causation, and every mark carries the evidence behind it.
 
 **A runnable demo, with no customer evidence** — `engine/run_demo` generates one coherent
-intrusion as ten real source files (`analysis/demo/scenario.py`, pure stdlib), ingests them through
+intrusion as nine source types (`analysis/demo/scenario.py`, pure stdlib), ingests them through
 the ordinary adapters into a case, and produces the full analysis and report. It is also the only
 end-to-end test in the suite: `analysis/demo/expectations.json` states what the correlation must
 conclude, in the same shape as the correlation corpus so the same checkers verify both.

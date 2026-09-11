@@ -4,7 +4,7 @@ A fresh clone of this repository can analyse nothing: there is no `.evtx`, no `.
 no export of anything, and the installer downloads tools rather than data. So the product could
 only ever be demonstrated on a customer's evidence — which is precisely the material that must not
 leave its case (§9/§10). This module removes that dependency: it writes a coherent, deterministic
-intrusion across ten source formats, and the ordinary ingest path takes it from there.
+intrusion across nine source types, and the ordinary ingest path takes it from there.
 
 **It generates FILES, not records.** `run_bench` already synthesises records and therefore measures
 the store and the recipes; going through files is what puts the *adapters* — the part that reads a

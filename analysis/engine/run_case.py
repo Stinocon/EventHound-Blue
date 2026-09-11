@@ -85,7 +85,7 @@ def cmd_add(args) -> int:
 
     Appending used to stop at the append, leaving `analyze` as a separate command — so the ordinary
     path was to add evidence and not look at what it did. Correlation is the reason a case exists;
-    running it is the default, and `--no-analyze` is there for the batch loop that adds ten sources
+    running it is the default, and `--no-analyze` is there for the batch loop that adds several sources
     before looking at any of them."""
     records, label, errors = _build(args)
     _print_errors(errors)

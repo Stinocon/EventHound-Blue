@@ -1,12 +1,13 @@
 ---
 title: Correlation EVTX ↔ PCAP ↔ log — reading guide
-updated: 2026-08-29
-version: 0.12.0
+updated: 2026-09-11
+version: 0.12.1
 linked_files:
   - analysis/README.md
   - analysis/analytics/correlate.py
   - analysis/schema/common-schema.md
 changelog:
+  - "0.12.1 (2026-09-11) — the demo is described as nine source types, not 'ten real source files'."
   - "0.12.0 (2026-08-29) — \"carries no ATT&CK technique\" is one question with one answer. It had three spellings across five call sites and each missed what the others caught: `kc_phase IS NULL` (a technique the offline map cannot resolve is real detection evidence rendered as co-occurrence), `techniques <> ''` (345 of the 3142 vendored SigmaHQ rules declare a tactic and no ID, so their phase resolves while the column is empty — that spelling quoted a phase's own establishing detection as another phase's corroboration and dropped the host from the triage list), and both being raw-string tests that counted a YARA `attack = \"Credential Access\"` meta value as a technique. The store's derived `attack_evidence` column is now the single definition, read by the corroboration, `host_killchain`, `incident_clusters`, `recipes.technique_frequency` and the timeline. Found by the third adversarial round, in the fix the second one had produced two commits earlier."
   - "0.11.0 — 2026-08-28 — per-phase corroboration corrected after an adversarial review, three of the four findings defeating its own premise. It claimed to report the tools carrying NO ATT&CK technique but filtered on family alone, so two phases quoted each other's technique-carrying evidence and the same handful of endpoint records reappeared as breadth — `kc_phase IS NULL` is now a WHERE clause, not a sentence in a docstring. The phase's own families are excluded by a subquery on `kc_phase` instead of by re-splitting the aggregated `source_list`, which tore a source name containing the separator in half. The ordering gained an explicit tie-break: counts inside a short window tie constantly, and two runs over identical evidence named different tools in the narrative. The beacon is now described as a property of the DESTINATION and attached to the address it belongs to — `recipes.beaconing` carries no family, so matching on the address alone credited \"periodic call-backs\" to whichever tool logged one packet to it. Also: the window is None rather than a fabricated 240 s when the span cannot be computed, and a new `corroboration_families` carries the compact form into the four table/card renderers that still showed only the technique-carrying tools."
   - "0.10.0 — 2026-08-28 — per-phase corroboration. The kill chain is derived from ATT&CK techniques and only the endpoint sources carry them, so on the simulated incident six records out of a hundred and two told the whole account: the narrative said \"Command and Control: 1 event, evtx\" while the capture held a regular beacon to the C2. Each phase now also states what the OTHER tools were doing in its window, as co-occurrence in time and never as a technique, with the width of that window stated so the claim can be weighed — and with the same exclusions the rest of the correlation applies, because the first implementation cheerfully named loopback, a machine account and the declared gateway as corroborating evidence."
@@ -363,7 +364,7 @@ apart.
 
 ## Seeing all of it without customer evidence
 
-`engine/run_demo` generates one coherent intrusion as ten real source files, ingests them through
+`engine/run_demo` generates one coherent intrusion as nine source types, ingests them through
 the ordinary adapters and produces the full analysis:
 
 ```
