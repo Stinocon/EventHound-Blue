@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.14
+version: 1.15
 updated: 2026-09-11
 changelog:
+  - 1.15 (2026-09-11) — the inline screenshots are the light report (attack map + summary), not the dark GUI captures: the report's light theme reads far better on a documentation page.
   - 1.14 (2026-09-11) — the attack-map and dashboard screenshots are shown inline in "Using it", so the first thing a reader sees after the demo is what the product draws.
   - 1.13 (2026-09-11) — the README is re-read and tightened: a duplicated "Privacy and anonymization" heading and a broken "Backup" list (said "three things", listed one) are repaired, the gate is described as 13 sections rather than 16, several garbled sentences are reworded, and "Development and tests" + "Troubleshooting" move to docs/development.md and docs/troubleshooting.md to shorten the front page.
   - 1.12 (2026-09-11) — a realistic, literature-grounded sample intrusion is added alongside the correlation demo: `analysis/demo/generate_samples.py` writes a credential-theft/lateral-movement scenario mapped phase-by-phase to ATT&CK techniques, Event IDs and SigmaHQ rules, documented in `docs/samples.md` with screenshots in `docs/screenshots/`.
@@ -207,13 +208,13 @@ arrives, and the GUI's Cases view can step through it without touching the termi
 
 **GUI** (`http://127.0.0.1:8700`): upload EVTX / PCAP / registry / logs / THOR reports per view, analyze, then read the **Attack Map** — entities and how they are linked, in kill-chain order, with a phase-by-phase account underneath and a click through to the timeline — plus the dashboard for cross-source correlation, and export from **Report & Bundle**. **Load Demo Case** in the Cases view fills it with the simulated incident described above, with nothing to upload. The in-app **Help** view is the per-view walkthrough; the correlation model (normalization → confidence → clusters) is documented in [`docs/analysis/correlation.md`](docs/analysis/correlation.md), and the hunting playbook in [`docs/analysis/threat-hunting-evtx.md`](docs/analysis/threat-hunting-evtx.md).
 
-What it looks like — the **attack map** (entities linked in kill-chain lanes, the phase-by-phase
-account underneath) and the **dashboard** (cross-source correlation ranked by confidence), both over
-the simulated incident:
+What it looks like — the **attack map** (entities linked in kill-chain lanes, with the phase-by-phase
+account underneath) and the top of the **report** (kill chain, techniques, cross-source correlation),
+both over the sample intrusion:
 
-| Attack map | Dashboard |
-|------------|-----------|
-| [![Attack map](docs/screenshots/gui-map.png)](docs/screenshots/gui-map.png) | [![Dashboard](docs/screenshots/gui-dashboard.png)](docs/screenshots/gui-dashboard.png) |
+![Attack map](docs/screenshots/report-map.png)
+
+![Report — kill chain, techniques and correlation](docs/screenshots/report-summary.png)
 
 **CLI** (from `analysis/`, everything the GUI does):
 
