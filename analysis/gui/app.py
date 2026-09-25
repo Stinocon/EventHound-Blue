@@ -171,33 +171,6 @@ def _sniff_thor_csv(path: str) -> bool:
     return len(parts) >= 2 and bool(_re.fullmatch(r"[0-9a-fA-F]{32}", parts[0].strip()))
 
 
-def _sniff_okta(path: str) -> bool:
-    """An Okta System Log export: LogEvent objects carrying `eventType` and `published`.
-
-    Sniffed rather than routed by extension because an Okta export is a `.json` like several other
-    things: without this it fell through to the generic log adapter, which reads top-level keys only
-    and so lost the actor, the client address and the outcome — the entire identity layer of an
-    intrusion, silently."""
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
-            head = fh.read(4096)
-        if "eventType" not in head or "published" not in head:
-            return False
-        # Confirm it parses as an Okta shape rather than merely mentioning the words.
-        stripped = head.lstrip()
-        obj = None
-        if stripped.startswith("["):
-            obj = _json.loads(head[:head.rindex("}") + 1] + "]") if "}" in head else None
-            obj = obj[0] if obj else None
-        elif stripped.startswith("{"):
-            obj = _json.loads(stripped[:stripped.index("}\n")] if "}\n" in stripped else stripped)
-        return isinstance(obj, dict) and "eventType" in obj and "published" in obj
-    except (OSError, ValueError, _json.JSONDecodeError):
-        # A truncated head is not a verdict: fall back to the substring evidence, which is already
-        # specific enough that a plain application log will not match it.
-        return False
-
-
 def _sniff_hive(path: str) -> bool:
     """A binary registry hive starts with the `regf` signature. SAM, SYSTEM and SOFTWARE are
     collected without an extension, so the magic is the only thing that identifies them."""
@@ -243,7 +216,7 @@ def _sniff_crowdstrike(path: str) -> bool:
 
 
 async def _analyze_stream(evtx, evtxfull, pcap, logs, reg_paths, thor, errors,
-                          osquery=None, crowdstrike=None, okta=None, hives=None, mft=None,
+                          osquery=None, crowdstrike=None, hives=None, mft=None,
                           yara=None, case_id=None, case_label=None):
     """Generator yielding SSE events during analysis.
 
@@ -282,7 +255,7 @@ async def _analyze_stream(evtx, evtxfull, pcap, logs, reg_paths, thor, errors,
         return runner.build_records(
             evtx=evtx, evtx_full=evtxfull, pcap=pcap, logs=logs,
             registry=reg_paths, registry_hives=hives, mft=mft, thor=thor,
-            osquery=osquery, okta=okta, yara=yara, crowdstrike=crowdstrike,
+            osquery=osquery, yara=yara, crowdstrike=crowdstrike,
             errors=errors, _progress=on_progress,
         )
 
@@ -360,7 +333,7 @@ async def _analyze_stream(evtx, evtxfull, pcap, logs, reg_paths, thor, errors,
                        "logs": len(logs), "registry": len(reg_paths),
                        "registry_hives": len(hives or []), "mft": len(mft or []),
                        "thor": len(thor), "osquery": len(osquery or []),
-                       "okta": len(okta or []), "yara": len(yara or []),
+                       "yara": len(yara or []),
                        "crowdstrike": len(crowdstrike or []),
                        "errors": errors}
     if case_error:
@@ -394,7 +367,6 @@ async def analyze(files: list[UploadFile], evtx_full: bool = Form(False), case: 
     thor_reports: list[str] = []
     thor_csvs: list[str] = []
     osquery_paths: list[str] = []
-    okta_paths: list[str] = []
     crowdstrike_paths: list[str] = []
     hives: list[str] = []
     mft_paths: list[str] = []
@@ -450,8 +422,6 @@ async def analyze(files: list[UploadFile], evtx_full: bool = Form(False), case: 
             thor_csvs.append(str(dest))
         elif ext in {".json", ".log"} and _sniff_osquery(str(dest)):
             osquery_paths.append(str(dest))
-        elif ext in {".json", ".jsonl", ".log"} and _sniff_okta(str(dest)):
-            okta_paths.append(str(dest))
         elif ext in {".txt", ".log"} and _sniff_crowdstrike(str(dest)):
             crowdstrike_paths.append(str(dest))
         elif ext in _LOG_EXT:
@@ -476,12 +446,12 @@ async def analyze(files: list[UploadFile], evtx_full: bool = Form(False), case: 
         errors.append("YARA rules uploaded with nothing to scan — add the files to scan alongside them")
     if not yara_rules:
         for name, _path in unclaimed:
-            errors.append(f"unsupported extension: {name!r} (expected .evtx/.pcap/.log/.reg/.yar, a registry hive or $MFT, osquery/Okta .json, crowdstrike .txt/.log, or a THOR report)")
+            errors.append(f"unsupported extension: {name!r} (expected .evtx/.pcap/.log/.reg/.yar, a registry hive or $MFT, osquery .json, crowdstrike .txt/.log, or a THOR report)")
 
-    if not any((evtx, evtxfull, pcap, logs, reg_paths, thor, osquery_paths, okta_paths,
+    if not any((evtx, evtxfull, pcap, logs, reg_paths, thor, osquery_paths,
                 crowdstrike_paths, hives, mft_paths, yara)):
         shutil.rmtree(tmp, ignore_errors=True)
-        return JSONResponse({"error": "no valid file uploaded (expected .evtx/.pcap/.log/.reg, a registry hive or $MFT, osquery/Okta, crowdstrike, YARA rules with targets, or a THOR report)", "errors": errors}, status_code=400)
+        return JSONResponse({"error": "no valid file uploaded (expected .evtx/.pcap/.log/.reg, a registry hive or $MFT, osquery, crowdstrike, YARA rules with targets, or a THOR report)", "errors": errors}, status_code=400)
 
     # Uploaded file names, not tmp paths — used as the case source label so a case's `sources` list
     # reads like "Security.evtx" rather than an opaque tempdir path.
@@ -492,7 +462,7 @@ async def analyze(files: list[UploadFile], evtx_full: bool = Form(False), case: 
         try:
             async for chunk in _analyze_stream(evtx, evtxfull, pcap, logs, reg_paths, thor, errors,
                                                osquery=osquery_paths, crowdstrike=crowdstrike_paths,
-                                               okta=okta_paths, hives=hives, mft=mft_paths, yara=yara,
+                                               hives=hives, mft=mft_paths, yara=yara,
                                                case_id=case_id, case_label=case_label):
                 yield chunk
         finally:
@@ -609,6 +579,16 @@ def _case_error_status(exc: case_store.CaseError) -> int:
     return 404
 
 
+def _demo_steps() -> tuple[str, ...]:
+    """The demo scenario's source order, for the stepwise "Load Demo Case" in the GUI.
+
+    Read from the scenario module rather than written out here: a second copy of the order is a
+    second thing to forget when a source is added or removed, and the GUI's copy has been behind
+    before."""
+    from demo.scenario import ORDER
+    return ORDER
+
+
 @app.get("/api/cases")
 def list_cases() -> dict:
     """Every persisted case, newest updated first. Each entry adds `size_mb` (on-disk size of the
@@ -659,19 +639,20 @@ def load_demo_case(payload: dict | None = Body(None)) -> Response:
             step = int(payload["step"])
         except (TypeError, ValueError):
             return JSONResponse({"error": "step must be an integer"}, status_code=400)
-        if not 0 <= step < len(run_demo.DEMO_ORDER):
-            return JSONResponse({"error": f"step out of range (0..{len(run_demo.DEMO_ORDER) - 1})"},
+        if not 0 <= step < len(_demo_steps()):
+            return JSONResponse({"error": f"step out of range (0..{len(_demo_steps()) - 1})"},
                                 status_code=400)
 
-    only = run_demo.DEMO_ORDER[step] if step is not None else None
+    steps = _demo_steps()
+    only = steps[step] if step is not None else None
     # Step 0 starts a fresh case; every later step adds to the one already there.
     built = run_demo.build_demo_case(_DEMO_CASE, only=only, reset=(step in (None, 0)))
     return JSONResponse({
         **built,
         "step": step,
         "label": only,
-        "steps": list(run_demo.DEMO_ORDER),
-        "done": step is None or step == len(run_demo.DEMO_ORDER) - 1,
+        "steps": steps,
+        "done": step is None or step == len(steps) - 1,
         # Not swallowed: a missing tshark or yara-python means a smaller picture, and the caller has
         # to be able to say so rather than present the result as complete.
     })

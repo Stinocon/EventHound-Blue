@@ -104,7 +104,7 @@ def test_end_to_end_correlation() -> None:
     """The whole point, on one small dataset: one actor across three sources, and no false bridges."""
     records = [
         # Same person, three spellings, three sources — must merge into ONE user bridge.
-        {"@timestamp": "2026-07-20T10:00:00Z", "event.source": "okta", "user.name": "alice@corp.example",
+        {"@timestamp": "2026-07-20T10:00:00Z", "event.source": "crowdstrike", "user.name": "alice@corp.example",
          "source.ip": "203.0.113.9"},
         {"@timestamp": "2026-07-20T10:01:00Z", "event.source": "evtx", "user.name": "CORP\\Alice",
          "host.name": "DC1.corp.example", "attack.techniques": ["T1003.001"]},
@@ -121,7 +121,7 @@ def test_end_to_end_correlation() -> None:
         {"@timestamp": "2026-07-20T10:06:00Z", "event.source": "thor", "host.name": "dc1",
          "file.name": "evil.exe", "file.hash": "b" * 64},
         # A different realm, same account name → must be surfaced as AMBIGUOUS, not as a fact.
-        {"@timestamp": "2026-07-20T10:07:00Z", "event.source": "okta", "user.name": "bob@corp.example"},
+        {"@timestamp": "2026-07-20T10:07:00Z", "event.source": "crowdstrike", "user.name": "bob@corp.example"},
         {"@timestamp": "2026-07-20T10:08:00Z", "event.source": "evtx", "user.name": "PARTNER\\bob",
          "host.name": "ws9"},
     ]

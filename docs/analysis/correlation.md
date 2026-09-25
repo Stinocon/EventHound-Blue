@@ -47,7 +47,7 @@ file**.
 **A family is a tool, not a file.** The question a bridge answers is *how many independent tools
 corroborate this*, and confidence grows with the count — so the unit has to be the tool. Adapters
 disagree on how much they put in `event.source`: PCAP and the generic log adapter qualify it with
-the file (`pcap:capture.pcap`), the others emit a bare constant (`evtx`, `thor`, `okta`). Reading
+the file (`pcap:capture.pcap`), the others emit a bare constant (`evtx`, `thor`, `osquery`). Reading
 the qualified label as the unit was wrong in both directions at once: two captures from one sensor
 counted as two corroborating tools, while ten EVTX files collected from ten hosts all carried the
 same label and could never corroborate each other. The family (`pcap`, `evtx`, …) is the unit for
@@ -364,7 +364,7 @@ apart.
 
 ## Seeing all of it without customer evidence
 
-`engine/run_demo` generates one coherent intrusion as nine source types, ingests them through
+`engine/run_demo` generates one coherent intrusion as eight source types, ingests them through
 the ordinary adapters and produces the full analysis:
 
 ```

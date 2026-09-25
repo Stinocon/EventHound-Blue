@@ -113,7 +113,7 @@ def run() -> int:
         finally:
             con.close()
 
-    print(f"PASS  demo: {len(records)} records from ten generated sources, "
+    print(f"PASS  demo: {len(records)} records from {len(per_source)} generated sources, "
           f"{ran} expectation case(s) verified, {skipped} skipped for missing tools")
     return 0
 

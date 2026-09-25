@@ -40,9 +40,9 @@ def test_canon_host():
 
 
 def test_user_correlates_across_spellings():
-    """Okta 'alice@corp.example' and EVTX 'CORP\\alice' → same actor, correlated."""
+    """An EDR export's UPN 'alice@corp.example' and EVTX's 'CORP\\alice' → same actor."""
     recs = [
-        {"@timestamp": "2026-07-22T10:00:00Z", "event.source": "okta",
+        {"@timestamp": "2026-07-22T10:00:00Z", "event.source": "crowdstrike",
          "user.name": "alice@corp.example", "source.ip": "203.0.113.5"},
         {"@timestamp": "2026-07-22T10:01:00Z", "event.source": "evtx",
          "user.name": "CORP\\alice", "host.name": "DC1"},
@@ -50,7 +50,7 @@ def test_user_correlates_across_spellings():
     res = runner.analyze(recs)
     users = [i for i in res["shared_indicators"] if i["kind"] == "user"]
     alice = next((i for i in users if i["indicator"] == "alice"), None)
-    assert alice is not None, "normalized user 'alice' must bridge okta+evtx"
+    assert alice is not None, "normalized user 'alice' must bridge crowdstrike+evtx"
     assert alice["families"] == 2 and alice["match_type"] == "normalized"
     assert "alice@corp.example" in alice["variants"] and "CORP\\alice" in alice["variants"]
 

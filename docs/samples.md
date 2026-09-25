@@ -35,7 +35,7 @@ real analyst would expect to see for that behaviour — the sample is grounded i
 
 | # | Phase | Technique | Evidence (source → signal) | Event ID / Sigma rule |
 |---|-------|-----------|----------------------------|-----------------------|
-| 1 | Initial access | T1110 Brute Force → T1078 Valid Accounts | access log (5× 401 then a 200), syslog (sshd `Failed password`), Okta (3× `FAILURE` then `SUCCESS` + MFA) | — |
+| 1 | Initial access | T1110 Brute Force → T1078 Valid Accounts | access log (5× 401 then a 200), syslog (sshd `Failed password`, then `Accepted password`) | — |
 | 2 | Execution | T1204.002 User Execution: Malicious File | Sysmon 1: payload runs from `%TEMP%` | **"Suspicious Binary Executed From Temp Directory"** |
 | 3 | Persistence | T1543.003 Service · T1547.001 Run Key | 7045 service install, Sysmon 13 RegistryEvent, a native `.reg` export | **"Service Installed With Binary In Temp"**, **"Run Key Created"** |
 | 4 | Credential access | T1003.001 OS Credential Dumping: LSASS | Sysmon 10 (ProcessAccess to `lsass.exe`), CrowdStrike detection, THOR Mimikatz YARA hit | **"LSASS Memory Access"** |
@@ -53,7 +53,7 @@ produces:
 - **A file-hash bridge across three tools** — the same SHA-256 of `svcupdate.exe` is named
   independently by CrowdStrike, THOR and osquery (confidence *high*), which is the strongest form of
   corroboration the engine reports.
-- **The identity bridge for `alice` across six tools** (crowdstrike, evtx, log, okta, osquery, thor),
+- **The identity bridge for `alice` across five tools** (crowdstrike, evtx, log, osquery, thor),
   and `svc-backup` across two — the account the intrusion pivots through.
 - **One incident cluster** of 15 entities spanning 8 of the 9 source families, the C2 address and the
   freshly-registered domain.

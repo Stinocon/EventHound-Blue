@@ -252,7 +252,7 @@ def _conf_label(c: float) -> str:
 def shared_indicators(con, infra_ips=None) -> list[dict]:
     """Indicators (IP, domain, user, host, hash, file) present in MULTIPLE source families:
     the cross-source correlation bridge (e.g. an IP in both EVTX and web logs, or the same user
-    seen by Okta and EVTX under different spellings). `variants` lists the raw forms merged;
+    seen by an EDR export and by EVTX under different spellings). `variants` lists the raw forms merged;
     `match_type` is 'normalized' when >1 spelling collapsed (auditable). `confidence`/`confidence_label`
     rank bridges by strength (hash > identity > host > domain > file > IP), so the analyst reads the
     solid links first instead of noisy shared infrastructure."""
@@ -735,8 +735,8 @@ def incident_clusters(con, min_families: int = 2, min_entities: int = 2, limit: 
 
     Two entities that appear in the SAME event are linked; transitively (Union-Find), a cluster is a
     set of entities — users, hosts, IPs, domains, hashes, files — tied together through shared events.
-    A cluster spanning MULTIPLE source families is an incident that reaches across tools (e.g. an Okta
-    login → the same user on an EVTX host → a hash THOR flagged on it). Entities use canonical, normalized
+    A cluster spanning MULTIPLE source families is an incident that reaches across tools (e.g. a logon
+    in a perimeter log → the same user on an EVTX host → a hash THOR flagged on it). Entities use canonical, normalized
     user/host keys; ubiquitous machine accounts (SYSTEM…) are excluded (they'd bridge everything).
     Kept only when it links >= `min_families` sources and >= `min_entities` entities.
     """

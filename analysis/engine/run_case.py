@@ -43,7 +43,7 @@ def _build(args) -> tuple[list[dict], str, list[str]]:
         **build_source_kwargs(args),
     )
     named = (args.evtx + args.evtx_full + args.pcap + args.log + args.registry
-             + args.registry_hives + args.mft + args.thor + args.thor_csv + args.okta
+             + args.registry_hives + args.mft + args.thor + args.thor_csv
              + args.osquery + args.crowdstrike
              + ([args.yara_target] if args.yara_target else []))
     label = ", ".join(Path(p).name for p in named) or "records"

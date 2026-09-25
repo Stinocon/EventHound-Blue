@@ -1,13 +1,14 @@
 ---
 title: EventHound roadmap — what is built, what is open
 updated: 2026-09-25
-version: 1.45.0
+version: 1.46.0
 linked_files:
   - README.md
   - analysis/DESIGN.md
   - method/conventions.md
   - docs/analysis/performance.md
 changelog:
+  - "1.46.0 (2026-09-25) — a source removed and a source proved, and the second is what made the first obvious. **Okta is gone.** It was the one adapter in the suite that could never be exercised on real data: it needed a System Log export, no substitute existed, and every alternative was a rewrite of its own fixture. An unvalidatable source is a claim of capability nobody can check, which is the same defect this project has spent months removing from fixtures and mappings — so the honest half of the rule that an adapter is written against a real sample is that a source nobody can sample does not ship. Adapter, CLI, tests, GUI content-sniffing and demo data all went; what went with them is stated below rather than glossed. **osquery is now validated against a real 5.23.1 result log** captured on macOS and pseudonymized (§9, `tests/fixtures/osquery_result_5.23.1.jsonl`), and the capture named five defects that no amount of reading the documentation would have found. `logged_in_users` spells its account `user`, not `username`, so every recorded interactive session lost its user — 5 of 5 rows. `process_open_sockets` gives the far end as `remote_address`/`remote_port` and the near end as `local_address`/`local_port`, and only the first had a mapping, so a live connection contributed half an address and no port. A socket that has no port says `\"0\"`, which was written straight through to `destination.port` — and `recipes.nonstandard_ports` is every port outside COMMON_PORTS, so 86 of 120 listening rows on the capture became traffic to a non-standard port. `path` in `listening_ports` and `process_open_sockets` is the path of a Unix-domain SOCKET, and it was being written into `process.path`: a socket file reported as the binary a process runs. And `name` in a result log is the SCHEDULED QUERY's name, which osquery never ties to the table it read — the category map had assumed they were the same, so on the real capture four of five queries missed and every socket and every interactive session came out labelled `process`. All five fixed, all five pinned by tests built on the real fixture; the test that used to certify the mapping fed it a `logged_in_users` row with `username` and `remote_address`, two columns that table does not have — a test built on a guessed shape certifies the guess. **A second demo scenario, and the one that answers what a state source is for.** `run_demo --scenario triage-windows` (`demo/triage_windows.py`) is a live triage of a single Windows endpoint: the Security log was cleared an hour into the intrusion (T1070.001), the Sysmon channel survives, a scanner found the payload on disk — and osquery's snapshot says the payload is STILL RUNNING, on a socket to the command-and-control address that is STILL ESTABLISHED. That is a different argument from the macOS/Linux one: on Windows it is not that EVTX is absent, it is that EVTX only answers what happened. The scenario's scope is declared rather than implied — it uses the cross-platform tables the macOS capture validated, and the Windows-specific `services`/`scheduled_tasks`/`autoruns` tables are deliberately absent because no Windows sample exists here to verify them against. `tests/test_triage.py` is the assertion that decides the source's place: it runs the triage, then rebuilds the identical evidence WITHOUT osquery and requires the address bridge and the artifact bridge to disappear (5 bridges to 2). A number in an expectations file says a bridge exists; rebuilding without the source says why. **What removing Okta cost, stated:** the demo's account bridge drops from five families to four (the UPN spelling came from Okta and from nowhere else), one corpus case's UPN-versus-UPN realm conflict becomes DOMAIN\\user versus UPN — the conflict is the same, the spellings are not — and the gui loses one content-sniffing branch and one test assertion. **The review round then found a defect in the category fix itself**, which is why the fix is worth more than the defect: the column signature used `state` to recognise a network table and `gid` to recognise an IAM one, and `SELECT *` on the real binary shows `processes` carries BOTH — so a full-column process row under a query name that is not its table name came out a network event, or an IAM one. The trimmed fixture rows the tests used had neither column, which is exactly how a real-shape test suite still misses a real-shape defect. The order is now network / file / authentication / process / iam, `state` is gone from the network markers (the socket tables are caught by `socket`, which no process table has), every marker was checked against the real column list of the table it serves, and four full-column rows taken from `SELECT *` pin it. Two smaller findings from the same round: the port guard compared to the string `\"0\"` and would have missed `0`, `\"00\"` and `0.0` (all coerced to the same store value), and the scenario's default artifact directory had moved out of the gitignored `out/` into `analysis/demo/<scenario>/`, where a run of the triage had already dropped generated hostnames waiting for a `git add -A`."
   - "1.45.0 (2026-09-25) — a registry finding contributes an artifact, and the hygiene the repo had only by habit became mechanical. **The Open item on registry artifacts is closed**: an ASEP value is a command line, and `registry_asep.program_from_value` parses the program it launches into `file.path` (quoting, arguments, the NT native prefix), so the Run key and the service ImagePath that ARE the persistence of the simulated intrusion finally bridge to the EVTX/THOR/CrowdStrike/osquery/YARA records naming the same binary. One helper, called by BOTH registry adapters, because two copies of that decision is the defect `registry_asep.py` exists to prevent; and an explicit refusal on the other side, `LSA Packages`/`Known DLLs`/`AppInit` name DLL components and mint nothing, since a file entity made from a component list bridges unrelated hosts through a shared system DLL. Registry records still carry no host — a bare `.reg` has none. **Static analysis is now a gate step.** `tools/check-lint.sh` runs ruff (`ruff.toml`, hard when installed, SKIP otherwise) over `analysis/` and `tools/`; its first run on the repo found 38 findings and ten were real: a word set with `\"been\"` and `\"than\"` listed twice, four `raise` statements inside `except` that dropped the exception chain (to `from None`, which is what the 'no raw traceback' contract wants, not `from exc`), unused imports and locals, an f-string with no placeholder, a closure over a loop variable, and `assert False` under `-O`. The rule set is the green subset on purpose — the value is catching the next one. **The source CLIs are exercised on mock files instead of merely started.** `tests/test_cli_sources.py` drives CrowdStrike (clipboard and LogScale), Okta, osquery and the generic log adapter end to end from files on disk, which took them from ~35% to ~93% coverage and took the suite from 72% to 75% (114 tests). `tests/test_report_evtx.py` and `tests/test_report_json.py` cover the two renderers that had no test at all — including that `detailed` really drops `records`. **Corrected here, not a change:** an earlier pass proposed consolidating `run_pcap` onto the DuckDB recipes. It stays as it is — DESIGN §2.7 makes each slice CLI standalone, and the roadmap had already refused to promote its network ATT&CK signals onto records. The proposal was wrong and is recorded so it is not re-derived. **The review round found two defects in the new parse, both fixed here.** Reading \"the value ends in `.exe`\" as \"the value IS a path\" made a command line whose last argument is an executable into the artifact, so `mshta.exe http://203.0.113.20/x.exe` minted a local `x.exe` that then bridged to every unrelated record naming an `x.exe` on the host: the artifact is the SHORTEST leading run ending in a program extension, which stops at the program, and a URL is refused outright. And the Winlogon list branch returned the FIRST entry — the platform's own `userinit.exe` — which is not the appended payload, so it missed the persistence and, `userinit.exe` not being in the generic set, bridged every host through a file they all run; it returns the last entry now and `userinit.exe` joined the generic set. The scheduled-task branch was removed rather than kept: the action is a REG_BINARY blob no string parse reads, and a branch that cannot fire claims a capability it does not have."
   - "1.44.1 (2026-09-11) — the demo is described as nine source types, not 'ten real source files'."
   - "1.44.0 (2026-09-11) — publication sweep after the RAG/LLM removal. The Built section stops describing the removed vector RAG and on-box LLM (a Knowledge base bullet and the MCP interface take their place); the Publication blocker open item is closed (the new repo disposed of it); the `knowledge_cyber` RAG entry is dropped; and the closed decisions gain the removal itself, reframe 'native over containers' without the 14B rationale, and drop the RAG phrasing from the no-vendor-docs decision. The 1.0.0–1.43.0 changelog above keeps the removal and everything before it in the past tense."
@@ -69,7 +70,8 @@ Component detail lives in [`analysis/DESIGN.md`](../analysis/DESIGN.md); this is
 **Analysis engine** — EVTX via Hayabusa/Sigma (detections) and EvtxECmd (full stream), the Hayabusa
 toolbox (EID/log/computer metrics, keyword & regex search, pivot keywords, base64 extraction), PCAP
 via tshark + Zeek, generic logs (access/jsonl/regex/syslog), Windows registry (RECmd hives and native
-`.reg` exports), MFT via MFTECmd, THOR (Nextron) scan reports, Okta System Log. All normalized onto
+`.reg` exports), MFT via MFTECmd, THOR (Nextron) scan reports, osquery result logs, YARA matches.
+All normalized onto
 one ECS-subset schema (`analysis/schema/common-schema.md`).
 
 **The attack map** — `engine/attack_map.py`: entities and their links in kill-chain lanes as inline
@@ -77,7 +79,7 @@ SVG, with a deterministic phase-by-phase narrative, rendered once for both the H
 GUI. An edge is co-occurrence, never causation, and every mark carries the evidence behind it.
 
 **A runnable demo, with no customer evidence** — `engine/run_demo` generates one coherent
-intrusion as nine source types (`analysis/demo/scenario.py`, pure stdlib), ingests them through
+intrusion as eight source types (`analysis/demo/scenario.py`, pure stdlib), ingests them through
 the ordinary adapters into a case, and produces the full analysis and report. It is also the only
 end-to-end test in the suite: `analysis/demo/expectations.json` states what the correlation must
 conclude, in the same shape as the correlation corpus so the same checkers verify both.
@@ -272,12 +274,13 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
   demo scenario is the precedent for the other half of the rule: where a sample can be *generated*
   rather than obtained, generate it.
 
-- **The two speculative adapters are still unvalidated.** `okta_systemlog.py` and
-  `osquery_result.py` say so in their own docstrings. osquery is the cheap one — it is free, local,
-  and `brew install osquery` produces a genuine result log in ten minutes, which is why it should be
-  validated before it is trusted on a customer's data; it is not installed on this machine, and
-  installing it is the operator's call, not something to do unasked. Okta needs a real export and
-  has no substitute.
+- **The speculative adapters — one validated, one removed — CLOSED 2026-09-25.**
+  `osquery_result.py` was built from the documented format; a real 5.23.1 result log captured on
+  macOS (`tests/fixtures/osquery_result_5.23.1.jsonl`, pseudonymized §9) then named four mapping
+  defects the documentation did not, and the adapter was corrected against them. `okta_systemlog.py`
+  was removed instead: it needed an export that does not exist here and has no substitute, so no
+  sample could ever have validated it. The reasoning is in the entry above; the removal is in the
+  'Closed decisions' list below.
 
 - **Infrastructure addresses merge the estate into one cluster — CLOSED 2026-08-27.**
   Found by the demo, fixed with the case work it depended on: the addresses are declared per case
@@ -467,11 +470,26 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
   analyst already holds, exactly like an EVTX or a PCAP. The knowledge base keeps only what grounds the
   analysis itself: frameworks, regulations and ACN.
   Corollary: a product-syntax question has **no** answer here, and saying so is correct.
-- **New products are not a standing backlog item.** Okta shipped as a CLI source because a documented
-  schema and a plausible sample existed; Microsoft 365 / Entra, Proofpoint and the rest are *not*
-  tracked as to-do. They follow from the decision above, not from an ambition to cover every vendor:
-  each waits on a real reason to exist — a specific analysis that needs it and a real sample to build
-  against — at which point it is picked up deliberately, not because a list said so. An Okta GUI view
-  is the same: CLI-first means a source is complete when its CLI works, and the GUI follows demand.
-  (This was removed from the list once, re-added by mistake during a review, and removed again — the
-  reasoning lives here so it stays removed.)
+- **New products are not a standing backlog item.** Microsoft 365 / Entra, Proofpoint and the rest
+  are *not* tracked as to-do. They follow from the decision above, not from an ambition to cover
+  every vendor: each waits on a real reason to exist — a specific analysis that needs it and a real
+  sample to build against — at which point it is picked up deliberately, not because a list said so.
+  CLI-first means a source is complete when its CLI works, and the GUI follows demand.
+- **No source ships unvalidated — Okta removed, osquery validated.** *(2026-09-25)* The rule that an
+  adapter is written against a real sample was applied to the two that had not been. **osquery** is
+  now checked against a genuine result log, and that check paid for itself immediately: the log named
+  four defects no reading of the documentation would have found — `logged_in_users` spells its
+  account `user`, not `username`, so every recorded session lost its user entirely; `process_open_sockets`
+  gives the far end as `remote_address`/`remote_port` and the near end as `local_address`/`local_port`,
+  none of which had a mapping, so a live connection contributed half an address; a socket with no
+  port says `"0"`, which `recipes.nonstandard_ports` then reported as traffic to a non-standard port;
+  and `path` in the two socket tables is the path of a Unix-domain socket, which was being written
+  into `process.path`. It also found that `name` in a result log is the SCHEDULED QUERY's name and not
+  the table, which the category map had been assuming — on the real capture four of five queries
+  missed and every row came out labelled `process`. **Okta** had no such route: it required a real
+  export, no substitute existed, and it was the one source in the suite that could never be exercised
+  on real data. It is gone, with its adapter, CLI, tests, GUI sniffing and demo data. Removing it was
+  the honest half of the same rule: an unvalidatable source is a claim of capability nobody can check.
+  What went with it: the UPN spelling in the demo's account bridge (five families to four) and one
+  corpus case's UPN-versus-UPN realm conflict, now DOMAIN\user versus UPN — the conflict is the same,
+  the spellings are not.

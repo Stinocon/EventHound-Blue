@@ -1,11 +1,12 @@
 ---
 title: Common analysis schema (ECS subset)
 updated: 2026-09-25
-version: 0.10.0
+version: 0.11.0
 related_files:
   - analysis/DESIGN.md
   - analysis/README.md
 changelog:
+  - "0.11.0 — 2026-09-25 — the osquery mapping corrected against a real 5.23.1 result log, and Okta's section removed with the source. Four columns the documentation does not have were being read as if they did: `logged_in_users` spells its account `user`, not `username`; the socket tables give the far end as `remote_address`/`remote_port` and the near end as `local_address`/`local_port`; a port a socket does not have is `\"0\"`; and in those two tables `path` is a Unix-domain socket. `event.category` is derived from the columns now, because a result log records the query's name and not the table's."
   - "0.10.0 — 2026-09-25 — a registry finding contributes an artifact. An ASEP value is a command line, and both registry adapters parse the program it launches into `file.path` (`registry_asep.program_from_value`): quoting, arguments and the NT native prefix are read, the program is not guessed, and the DLL-component lists (`LSA Packages`, `Known DLLs`, `AppInit`) deliberately contribute nothing. Before this, a Run key whose data named the payload bridged to no other source at all."
   - "0.9.0 — 2026-09-01 — R6-A follow-through: the defects that round left OPEN are closed. Zeek notices join on `uid` (not a non-existent `conn` column) and reach a record; one record per application-layer transaction, so a keep-alive connection's several HTTP requests/DNS answers are no longer collapsed to the last. `rule.name` (YARA rule, Zeek notice) is a store column. YARA no longer stamps the matched file as `process.name`. osquery `remote_address` → `destination.ip` (it is the OTHER end). LogScale adds `ImageFileName`/`CommandLine`/`DomainName`/`RemoteAddressIP4` and detects a JSON-ARRAY export. Hayabusa's abbreviated tactic vocabulary (DefImpair/CredAccess/…) is normalized to ATT&CK names. `.reg` `hex(1)`/`hex(2)` are decoded to their string, so the indicator layer fires on `REG_EXPAND_SZ`. MFT/RECmd timestamps are normalized to ISO-8601 (space→T, 7-digit→6-digit fraction) and THOR's year fallback is the report's mtime, not `datetime.now().year`."
   - "0.8.0 — 2026-08-30 — the `registry.*` group and its `ioc.*`/`rule.description` companions now reach an output: `recipes.registry_findings` reads them from the store (not from the capped record list), the HTML report has a Registry section at every level, and the GUI renders the same rows for both roads in. They had had columns since 0.7.0 and no page since ever — a Run key that IS the persistence was ingested, correlated and invisible."
@@ -36,7 +37,7 @@ run on this schema in DuckDB.
 | field | type | notes |
 |-------|------|-------|
 | `@timestamp` | datetime (UTC) | event timestamp, normalized to UTC |
-| `event.source` | keyword | `evtx` \| `crowdstrike` \| `okta` \| ... |
+| `event.source` | keyword | `evtx` \| `crowdstrike` \| `osquery` \| ... |
 | `event.action` | keyword | specific action (e.g. `process-create`, `logon`) |
 | `event.category` | keyword | ECS category (e.g. `process`, `authentication`, `network`) |
 | `event.outcome` | keyword | `success` \| `failure` \| `unknown` |
@@ -151,20 +152,22 @@ run on this schema in DuckDB.
   agent's external address, i.e. the tenant's NAT egress, identical for every host behind it,
   so as an indicator it would bridge every event to every other one.
 - osquery result log (NDJSON) → `event.source=osquery`, `@timestamp` (epoch `unixTime`),
-  `host.name` (`hostIdentifier`), `event.action` (`added`/`removed`), `event.category`
-  (from the table name: `processes`→process, `listening_ports`→network, `file_events`→file …),
-  `process.*`, `user.name`/`user.id`, `destination.port`, `source.ip` (local `address`),
-  `destination.ip` (`remote_address`: the OTHER end of a session), `file.path`,
-  `file.hash.md5`/`sha1`/`sha256`. Namespaced extras: `osquery.query` (the table),
-  `osquery.columns` (the raw row), `osquery.decorations`, `osquery.host_uuid`.
-  `columns.category` (the FIM group), `columns.tty` and, outside process tables,
-  `columns.name` are read but **not** promoted: they collide with schema fields they do not mean.
-- Okta System Log `LogEvent` → `event.source=okta`, `event.action` (`eventType`),
-  `event.category` (derived from the eventType namespace: `user.session`/`user.authentication`
-  → authentication), `event.outcome` (`outcome.result`), `user.name` (`actor.alternateId`),
-  `source.ip` (`client.ipAddress`), `message` (`displayMessage`). Namespaced extras:
-  `okta.severity`, `okta.outcome_reason`, `okta.target`, `okta.country`, `okta.is_proxy`,
-  `okta.user_agent`.
+  `host.name` (`hostIdentifier`), `event.action` (`added`/`removed`/`snapshot`), `event.category`
+  (from the table name where the query is named after its table, otherwise from the COLUMNS: a
+  result log records the scheduled query's name, which osquery never ties to the table it read),
+  `process.*`, `user.name` (`username` in `users`, **`user` in `logged_in_users`**)/`user.id`,
+  `destination.port`/`source.port`, `source.ip` (`address` in `listening_ports`, `local_address` in
+  the socket tables), `destination.ip` (`remote_address`: the OTHER end of a connection),
+  `file.path`, `file.hash.md5`/`sha1`/`sha256`. Namespaced extras: `osquery.query` (the query
+  name), `osquery.columns` (the raw row), `osquery.decorations`, `osquery.host_uuid`.
+  `columns.category` (the FIM group), `columns.tty`, `columns.host` (a hostname, not an IP),
+  `columns.state` and — outside process tables — `columns.name` and `columns.path` are read but
+  **not** promoted: they collide with schema fields they do not mean, and in the two socket tables
+  `path` is the path of a Unix-domain socket, not of a process. A port a socket does not have is
+  reported as `"0"` and is **not** written into `destination.port`: `recipes.nonstandard_ports`
+  would read every Unix socket on the host as traffic to a non-standard port.
+  Verified against a real 5.23.1 result log (`tests/fixtures/osquery_result_5.23.1.jsonl`), which is
+  where all of the above came from.
 - THOR (Nextron) scored finding → `event.source=thor`, `event.category=malware`,
   `file.name` (basename of `FILE`), `file.hash` (`SHA256`), `file.hash.md5` (`MD5`),
   `host.name`, `user.name` (`OWNER`), `rule.title` (`MATCHED_1`),

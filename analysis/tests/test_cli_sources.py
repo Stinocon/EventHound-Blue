@@ -71,25 +71,6 @@ CROWDSTRIKE_LOGSCALE = json.dumps({
     "cid": "1a2b3c4d5e6f708192a3b4c5d6e7f809",
 })
 
-OKTA_SYSTEM_LOG = json.dumps([
-    {
-        "uuid": "e1", "published": "2026-07-22T10:00:00.000Z",
-        "eventType": "user.session.start", "severity": "INFO",
-        "displayMessage": "User login to Okta",
-        "actor": {"id": "00u1", "type": "User", "alternateId": "alice@corp.example"},
-        "client": {"ipAddress": "203.0.113.5",
-                   "geographicalContext": {"city": "Rome", "country": "Italy"}},
-        "outcome": {"result": "SUCCESS"},
-    },
-    {
-        "uuid": "e2", "published": "2026-07-22T10:01:00.000Z",
-        "eventType": "user.authentication.auth_via_mfa", "severity": "WARN",
-        "displayMessage": "Authentication of user via MFA",
-        "actor": {"id": "00u1", "type": "User", "alternateId": "alice@corp.example"},
-        "client": {"ipAddress": "203.0.113.99"},
-        "outcome": {"result": "FAILURE", "reason": "INVALID_CREDENTIALS"},
-    },
-])
 
 OSQUERY_NDJSON = "\n".join([
     json.dumps({
@@ -132,15 +113,6 @@ def test_run_crowdstrike_cli() -> None:
         assert _by_source(out).get("crowdstrike", 0) == 2, _by_source(out)
 
 
-def test_run_okta_cli() -> None:
-    with tempfile.TemporaryDirectory(prefix="eh-okta-") as td:
-        d = Path(td)
-        log = _write(d / "system_log.json", OKTA_SYSTEM_LOG)
-        out = d / "okta.json"
-        p = _run(["engine.run_okta", str(log), "--json-out", str(out)])
-        assert p.returncode == 0, (p.stdout[-500:], p.stderr[-500:])
-        assert "Events:" in p.stdout, p.stdout[:400]
-        assert _by_source(out).get("okta", 0) == 2, _by_source(out)
 
 
 def test_run_osquery_cli() -> None:
@@ -168,7 +140,7 @@ def test_run_logs_cli_with_explicit_format() -> None:
 def test_cli_rejects_a_missing_file_without_a_traceback() -> None:
     """The error path reaches the user as a sentence: an unhandled exception here would print a
     traceback over whatever the analyst was reading, and §8 makes the path untrusted input."""
-    for cli, flag in (("engine.run_crowdstrike", None), ("engine.run_okta", None),
+    for cli, flag in (("engine.run_crowdstrike", None),
                       ("engine.run_osquery", None), ("engine.run_logs", "--fmt")):
         args = [cli, "/nonexistent/evidence.file"] + ([flag, "access"] if flag else [])
         p = _run(args)
@@ -178,11 +150,10 @@ def test_cli_rejects_a_missing_file_without_a_traceback() -> None:
 
 def run() -> int:
     test_run_crowdstrike_cli()
-    test_run_okta_cli()
     test_run_osquery_cli()
     test_run_logs_cli_with_explicit_format()
     test_cli_rejects_a_missing_file_without_a_traceback()
-    print("PASS  cli sources: crowdstrike (clipboard + LogScale), okta, osquery, logs — "
+    print("PASS  cli sources: crowdstrike (clipboard + LogScale), osquery, logs — "
           "each end to end, and a missing file fails cleanly")
     return 0
 

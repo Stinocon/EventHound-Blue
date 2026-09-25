@@ -9,7 +9,7 @@ The intrusion is one textbook pattern, chosen because every step is well documen
 writing (MITRE ATT&CK, SigmaHQ, the EVTX-ATTACK-SAMPLES corpus):
 
     1  initial access    brute-force of the perimeter portal, then a valid logon as `alice`
-                         (T1110 → T1078)                    access log + syslog + Okta
+                         (T1110 → T1078)                    access log + syslog
     2  execution         the payload runs from %TEMP% on ws-01            Sysmon 1 (T1204.002)
     3  persistence       a service and a Run key keep it resident
                                                             7045 (T1543.003) + .reg (T1547.001)
@@ -124,41 +124,6 @@ def write_syslog(out: Path) -> Path:
              "IPTABLES: IN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=TCP SPT=44100 DPT=8080"),
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return path
-
-
-def write_okta(out: Path) -> Path:
-    """Okta System Log export — the identity side of the brute force and the lateral movement."""
-    path = out / "okta_system_log.json"
-
-    def ev(off: int, etype: str, result: str, msg: str, ip: str = ATTACKER_IP,
-           user: str = f"{USER}@{DOMAIN}") -> dict:
-        return {
-            "uuid": f"okta-{off}",
-            "published": (BASE + timedelta(seconds=off)).strftime("%Y-%m-%dT%H:%M:%S.000") + "Z",
-            "eventType": etype,
-            "severity": "WARN" if result == "FAILURE" else "INFO",
-            "displayMessage": msg,
-            "actor": {"id": "00u9f", "type": "User", "alternateId": user,
-                      "displayName": "A. Conti"},
-            "client": {"ipAddress": ip, "userAgent": {"rawUserAgent": "python-requests/2.31"},
-                       "geographicalContext": {"country": "n/a"}},
-            "outcome": {"result": result,
-                        "reason": "INVALID_CREDENTIALS" if result == "FAILURE" else None},
-        }
-
-    events = [
-        ev(P1 + 20, "user.session.start", "FAILURE", "User login to Okta"),
-        ev(P1 + 35, "user.session.start", "FAILURE", "User login to Okta"),
-        ev(P1 + 50, "user.session.start", "FAILURE", "User login to Okta"),
-        ev(P1 + 70, "user.session.start", "SUCCESS", "User login to Okta"),
-        ev(P1 + 72, "user.authentication.auth_via_mfa", "SUCCESS",
-           "Authentication of user via MFA"),
-        # The stolen service account surfaces again in the identity plane (T1078).
-        ev(P4 + 50, "user.session.start", "SUCCESS", "User login to Okta",
-           ip=IP_WS, user=f"{USER_SVC}@{DOMAIN}"),
-    ]
-    path.write_text(json.dumps(events, indent=2), encoding="utf-8")
     return path
 
 
@@ -428,7 +393,6 @@ def generate(outdir: str | Path) -> dict:
 
     access = write_access(out)
     syslog = write_syslog(out)
-    okta = write_okta(out)
     jsonl = write_hayabusa_jsonl(out)
     registry = write_registry(out)
     thor = write_thor(out)
@@ -443,7 +407,6 @@ def generate(outdir: str | Path) -> dict:
         "build_records": {
             "logs": [{"path": str(access), "fmt": "access"},
                      {"path": str(syslog), "fmt": "syslog"}],
-            "okta": [str(okta)],
             "registry": [str(registry)],
             "thor": [{"report": str(thor)}],
             "crowdstrike": [str(crowdstrike)],

@@ -32,9 +32,9 @@ def test_confidence_hash_beats_ip():
 
 
 def test_incident_cluster_spans_three_tools():
-    """Okta login (user) → EVTX (same user, host DC1) → THOR (host DC1, hash) = one cluster over 3 sources."""
+    """EDR login (user) → EVTX (same user, host DC1) → THOR (host DC1, hash) = one cluster, 3 sources."""
     recs = [
-        {"@timestamp": "2026-07-22T10:00:00Z", "event.source": "okta", "user.name": "alice@corp.example"},
+        {"@timestamp": "2026-07-22T10:00:00Z", "event.source": "crowdstrike", "user.name": "alice@corp.example"},
         {"@timestamp": "2026-07-22T10:01:00Z", "event.source": "evtx", "user.name": "CORP\\alice", "host.name": "DC1"},
         {"@timestamp": "2026-07-22T10:02:00Z", "event.source": "thor", "host.name": "dc1.corp.example", "file.hash": H},
     ]
@@ -43,7 +43,7 @@ def test_incident_cluster_spans_three_tools():
     c = clusters[0]
     assert c["sources"] == 3 and c["entities"] >= 3
     assert "alice" in c["users"] and "dc1" in c["hosts"] and c["hashes"] == 1
-    assert set(c["source_list"].split(", ")) == {"okta", "evtx", "thor"}
+    assert set(c["source_list"].split(", ")) == {"crowdstrike", "evtx", "thor"}
 
 
 def test_no_cluster_without_cross_source():

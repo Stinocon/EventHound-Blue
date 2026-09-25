@@ -637,12 +637,12 @@
         <span class="vh-sub">Logs &amp; anything without a view of its own</span>
       </div>
       <!-- The file picker used to accept only .log/.txt/.json/.jsonl/.csv, while the server has
-           always routed by CONTENT as well: an osquery result log, an Okta export, a CrowdStrike
+           always routed by CONTENT as well: an osquery result log, a CrowdStrike
            detection, a $MFT (no extension), a registry hive and .yar rules are all recognised on
            arrival. Filtering them out of the picker made the GUI refuse evidence the engine reads —
            a $MFT could not even be selected. This is the one road in for them, rather than five
            views nobody asked for: the source list below says what actually gets recognised. -->
-      <div class="view-desc">Log files (.log, .txt, .json, .jsonl, .csv) for web-log analysis and pattern detection — <strong>and every source without a view of its own</strong>: osquery result logs, Okta System Log exports, CrowdStrike detections, <code>$MFT</code>, registry hives, and YARA rules (<code>.yar</code>, applied to whatever else you upload with them). Each is recognised by its content, not by its name.</div>
+      <div class="view-desc">Log files (.log, .txt, .json, .jsonl, .csv) for web-log analysis and pattern detection — <strong>and every source without a view of its own</strong>: osquery result logs, CrowdStrike detections, <code>$MFT</code>, registry hives, and YARA rules (<code>.yar</code>, applied to whatever else you upload with them). Each is recognised by its content, not by its name.</div>
       <div class="uploader">
         <input type="file" id="logs-files" multiple>
         <button id="logs-analyze">Load &amp; Analyze</button>
@@ -3215,7 +3215,7 @@ function renderHelp() {
     '<h3>THOR</h3>',
     '<p>Upload a THOR/THOR&nbsp;Lite scan report (<code>.txt</code>; the md5s <code>.csv</code> is a lower-fidelity fallback used only when no report is given). Findings correlate with everything else by file hash, file name, host and owner — the hash bridge is the strongest link the engine has.</p>',
     '<h3>Sources without a view of their own</h3>',
-    '<p>An <strong>osquery</strong> result log, a <strong>CrowdStrike</strong> detection export and an <strong>Okta</strong> System Log export are recognised by their content wherever you upload them — they share extensions with other things, so the extension cannot decide. A registry hive and an <code>$MFT</code> arrive with no extension at all and are recognised by their file signature. A <code>.yar</code>/<code>.yara</code> file is treated as <em>rules</em> and applied to whatever files in the same upload no other adapter claimed.</p>',
+    '<p>An <strong>osquery</strong> result log and a <strong>CrowdStrike</strong> detection export are recognised by their content wherever you upload them — they share extensions with other things, so the extension cannot decide. A registry hive and an <code>$MFT</code> arrive with no extension at all and are recognised by their file signature. A <code>.yar</code>/<code>.yara</code> file is treated as <em>rules</em> and applied to whatever files in the same upload no other adapter claimed.</p>',
     // ─── Section: Findings ───
     '<h2>Findings</h2>',
     '<h3>Dashboard</h3>',

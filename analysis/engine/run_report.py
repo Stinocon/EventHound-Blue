@@ -53,7 +53,6 @@ def add_source_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--thor-csv", dest="thor_csv", action="append", default=[],
                     help="THOR md5s CSV, companion or standalone fallback (repeatable; "
                          "matches engine.run_thor's --csv)")
-    ap.add_argument("--okta", action="append", default=[], help="Okta System Log export (repeatable)")
     ap.add_argument("--osquery", action="append", default=[],
                     help="osquery result log NDJSON (repeatable)")
     ap.add_argument("--crowdstrike", action="append", default=[],
@@ -66,11 +65,11 @@ def add_source_args(ap: argparse.ArgumentParser) -> None:
 
 
 def any_source_given(args: argparse.Namespace) -> bool:
-    """True if the command line named at least one of the eleven sources `build_records()` takes."""
+    """True if the command line named at least one of the ten sources `build_records()` takes."""
     return bool(
         args.evtx or args.evtx_full or args.pcap or args.log
         or args.registry or args.registry_hives or args.mft
-        or args.thor or args.thor_csv or args.okta or args.osquery or args.crowdstrike
+        or args.thor or args.thor_csv or args.osquery or args.crowdstrike
         or args.yara_target or args.yara_rules
     )
 
@@ -84,7 +83,6 @@ def build_source_kwargs(args: argparse.Namespace) -> dict:
         "registry_hives": args.registry_hives,
         "mft": args.mft,
         "thor": [{"report": t} for t in args.thor] + [{"md5s": c} for c in args.thor_csv],
-        "okta": args.okta,
         "osquery": args.osquery,
         "crowdstrike": args.crowdstrike,
     }

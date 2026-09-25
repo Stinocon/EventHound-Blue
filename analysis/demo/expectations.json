@@ -5,7 +5,7 @@
       "id": "demo-bridges",
       "title": "the designed bridges are found, and the designed noise is not",
       "requires": [],
-      "rationale": "Every bridge here exercises a different mechanism on purpose. The hash joins three tools that spell it in different case and under two different field names (`file.hash` from THOR, `file.hash.sha256` from CrowdStrike and osquery). The account joins five: a UPN from Okta, a bare name from the appliance log, and `CORP\\\\m.rossi` from EVTX, THOR's file owner and the CrowdStrike user field. The host joins a short name, an FQDN and an uppercase one. The artifact joins four, and the fourth is the `.reg` export: the Run key and the service ImagePath both name `svcupdate.exe`, and before the ASEP value was parsed as the command line it is, a registry finding contributed no artifact at all and the persistence of the intrusion bridged to nothing. Family counts are bounded on BOTH sides, because over-counting inflates confidence exactly as much as under-counting hides a link. The four `absent` entries each appear in two families and must still not bridge them: a correlation that links everything measures nothing.",
+      "rationale": "Every bridge here exercises a different mechanism on purpose. The hash joins three tools that spell it in different case and under two different field names (`file.hash` from THOR, `file.hash.sha256` from CrowdStrike and osquery). The account joins four: a bare name from the appliance log, and `CORP\\\\m.rossi` from EVTX, THOR's file owner and the CrowdStrike user field. The host joins a short name, an FQDN and an uppercase one. The artifact joins four, and the fourth is the `.reg` export: the Run key and the service ImagePath both name `svcupdate.exe`, and before the ASEP value was parsed as the command line it is, a registry finding contributed no artifact at all and the persistence of the intrusion bridged to nothing. Family counts are bounded on BOTH sides, because over-counting inflates confidence exactly as much as under-counting hides a link. The four `absent` entries each appear in two families and must still not bridge them: a correlation that links everything measures nothing.",
       "knob": "normalize.canon_* / is_generic_* / source_family; store._cell hash and file fallbacks",
       "expect": {
         "bridges": [
@@ -19,8 +19,8 @@
           {
             "indicator": "m.rossi",
             "kind": "user",
-            "min_families": 5,
-            "max_families": 5,
+            "min_families": 4,
+            "max_families": 4,
             "match_type": "normalized"
           },
           {
@@ -79,7 +79,7 @@
       "id": "demo-clusters",
       "title": "one cluster holds the account, the host, the attacker address and the payload",
       "requires": [],
-      "rationale": "The bridges say which entities are linked; the cluster says they are the SAME incident. It must come out as one component reaching across at least four tool families \u2014 Okta ties the account to the attacker address, EVTX ties the account to the host, THOR ties the host to the payload's hash. If the clustering ever splits them, an analyst reads one intrusion as several.",
+      "rationale": "The bridges say which entities are linked; the cluster says they are the SAME incident. It must come out as one component reaching across at least four tool families \u2014 the perimeter logs tie the account to the attacker address, EVTX ties the account to the host, THOR ties the host to the payload's hash. If the clustering ever splits them, an analyst reads one intrusion as several.",
       "knob": "correlate.incident_clusters (Union-Find over co-occurring entities)",
       "expect": {
         "clusters": [
@@ -151,7 +151,7 @@
           {
             "indicator": "203.0.113.77",
             "kind": "ip",
-            "min_families": 3
+            "min_families": 2
           }
         ],
         "beaconing": [

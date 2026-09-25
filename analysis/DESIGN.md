@@ -69,7 +69,7 @@ Design document. Defines a component for **analysis on real client data**, suppo
 
 ## 1. Objective and boundaries
 
-**Objective.** Given a set of heterogeneous security events (CrowdStrike export, Windows EVTX, Okta logs, ...), normalize them into a common schema, apply portable detection logic and local statistical analytics, and produce a report mapped to MITRE ATT&CK.
+**Objective.** Given a set of heterogeneous security events (CrowdStrike export, Windows EVTX, osquery snapshots, ...), normalize them into a common schema, apply portable detection logic and local statistical analytics, and produce a report mapped to MITRE ATT&CK.
 
 **Complementary to the knowledge base, not an alternative.**
 - The **knowledge base** (`method/` + the vendored `attack_map.json`) is the *knowledge* (what a technique is, what a regulation requires).
@@ -95,7 +95,7 @@ sources            adapter           common schema      store/compute      logic
 ──────────         ─────────         ─────────────      ─────────────      ──────────────         ──────
 EVTX            →  parser EVTX    →                  →                   →  Sigma (detection)   →  report
 CrowdStrike     →  parser CS      →   ECS subset    →   DuckDB           →  long-tail analytics→  (Markdown,
-Okta System Log →  parser Okta    →   ECS/OCSF       →   (embedded SQL)   →  correlation join   →   mapped
+osquery result log → parser osquery →   ECS/OCSF       →   (embedded SQL)   →  correlation join   →   mapped
 …                  …                  (norm. events)                         cross-source           to ATT&CK)
                                                                                                    →  validation
                                                                                                       (test set)
@@ -122,7 +122,7 @@ Okta System Log →  parser Okta    →   ECS/OCSF       →   (embedded SQL)   
 
 Minimal subset, in ECS style, sufficient to correlate host/user/process/time:
 
-- **common**: `@timestamp`, `event.source` (evtx|crowdstrike|okta), `event.action`, `event.category`, `attack.technique`.
+- **common**: `@timestamp`, `event.source` (evtx|crowdstrike|osquery), `event.action`, `event.category`, `attack.technique`.
 - **host**: `host.name` (pseudonym), `host.os`.
 - **user**: `user.name` (pseudonym), `user.domain`.
 - **process**: `process.name`, `process.command_line`, `process.pid`, `process.parent.name`.
@@ -143,7 +143,7 @@ Minimal subset, in ECS style, sufficient to correlate host/user/process/time:
 ```
 analysis/
 ├── DESIGN.md            # this document
-├── adapters/            # per-source parsers -> common schema (evtx, crowdstrike, okta, …)
+├── adapters/            # per-source parsers -> common schema (evtx, crowdstrike, osquery, …)
 ├── schema/              # common schema definition (ECS/OCSF subset)
 ├── sigma/               # Sigma rules used/curated (vendored or submodule)
 ├── yara_rules/          # YARA rules for file/memory (malware, artifacts)
@@ -176,7 +176,7 @@ Vertical and narrow, to deliver value early and avoid building the "universal en
 - **Phase 2 — DuckDB + long-tail layer.** *(implemented, 2026-06-21)* DuckDB in-memory store on common schema records (`analytics/store.py`); long-tail recipes (process stacking, first-seen host/user, rare parent-child, top talkers, rare/long DNS, non-standard ports, beaconing) and cross-source correlation (timeline, host overview, shared indicators). CLI `engine/run_analytics`, test on synthetic records.
 - **Phase 3 — Second adapter + correlation.** *(DONE, 2026-07-24)* CrowdStrike export adapter (`adapters/crowdstrike.py`: detection clipboard `Key: Value` blocks + LogScale/CQL JSON incl. the `@rawstring` wrapper) and cross-source EVTX↔CrowdStrike join on host/user/time, which follows from the common schema (`analytics/correlate.py`). It was unblocked by a different input than the one it waited on: no detection *export* exists, but a detection copied out of the console is a real, checkable sample, so nothing was written on guessed field names (§6/§7). **Note (2026-08-27):** the *documentation* half of the CrowdStrike strand is gone — `cs_falcon_docs` and `docs/crowdstrike/` were removed and product questions moved to a separate project on the official MCP server. The adapter is unaffected.
 - **Phase 4 — Automatic validation.** Detection test set + runner; integration into the workflow: modify a rule → test runs.
-- **Phase 5 — More products / YARA.** Okta System Log, **Microsoft 365 / Entra** (Entra sign-in logs, Defender for Office 365 / Exchange Online Protection), **Proofpoint** (email security / antispam), Microsoft Defender/Sentinel, etc., reusing schema and pattern *(product adapters: to do)*. **YARA implemented** (2026-06-21): `adapters/yara_scan.py` (file→common schema, technique from meta), optional dep `--extra yara`, test rule in `analysis/yara_rules/`.
+- **Phase 5 — More products / YARA.** **Microsoft 365 / Entra** (Entra sign-in logs, Defender for Office 365 / Exchange Online Protection), **Proofpoint** (email security / antispam), Microsoft Defender/Sentinel, etc., reusing schema and pattern *(product adapters: to do)*. An identity provider WAS implemented here (Okta System Log, 2026-07-22) and removed on 2026-09-25: it needed a real export to be validated, no substitute existed, and it was never exercised on real data. **YARA implemented** (2026-06-21): `adapters/yara_scan.py` (file→common schema, technique from meta), optional dep `--extra yara`, test rule in `analysis/yara_rules/`.
 - **Phase 6 — External threat intel enrichment.** *(implemented, 2026-06-21)* `tools/enrichment/`: Shodan InternetDB (keyless) + VirusTotal (keyed, lookup only). Egress gate (§12) and blocking of non-public indicators (RFC1918 IPs, internal domains) even with egress active. MCP tools `shodan_lookup`/`vt_lookup`.
 - **Cross-cutting (2026-06-21).** Local GUI (`analysis/gui`), **baseline/diffing** (`analytics/baseline.py`: new vs known-good), **case management** (`analytics/case.py` + template §17), **compliance mapping** (`tools/compliance`: incident→GDPR/NIS2/DORA obligations).
 

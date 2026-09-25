@@ -18,7 +18,7 @@ fully via GUI and CLI on its own.
 An **offline** suite that treats mature forensic tools as *sensors*, maps their heterogeneous output
 onto **one ECS-subset schema**, correlates **across** sources, and grounds findings in a local
 knowledge base. It analyses artifacts the analyst already has (EVTX, PCAP, logs, registry, MFT, THOR
-reports, Okta exports). It is **not** an EDR, not a SIEM, not an agent you deploy on endpoints.
+reports, osquery snapshots). It is **not** an EDR, not a SIEM, not an agent you deploy on endpoints.
 
 Architecture: [`docs/architecture.md`](docs/architecture.md) · Engine detail:
 [`analysis/DESIGN.md`](analysis/DESIGN.md) · State and backlog: [`docs/roadmap.md`](docs/roadmap.md).
@@ -59,7 +59,6 @@ uv run python -m engine.run_logons sec.evtx                       # 4624/4625 lo
 uv run python -m engine.run_pcap capture.pcap                     # flows, DNS, beaconing signals
 uv run python -m engine.run_logs access.log --fmt access          # generic logs (access/jsonl/regex/syslog)
 uv run python -m engine.run_thor thor_report.txt                  # THOR (Nextron) scan report
-uv run python -m engine.run_okta system_log.json                  # Okta System Log export
 uv run python -m engine.run_analytics --evtx a.evtx --pcap c.pcap # long-tail + cross-source correlation
 uv run python -m engine.run_report --evtx a.evtx --out r.html     # report (--format html|markdown|json)
 uv run python -m engine.run_export --evtx a.evtx --out case.json  # re-importable analysis bundle
@@ -129,7 +128,7 @@ improvise. Vendor product documentation is deliberately **not** part of this pro
 
 **Read the schema before adding a source.** `analysis/schema/common-schema.md` is what makes
 correlation possible; an adapter that invents fields breaks the joins. Look at
-`analysis/adapters/okta_systemlog.py` for the shape of a small, complete adapter, and at
+`analysis/adapters/osquery_result.py` for the shape of a small, complete adapter, and at
 `analysis/analytics/normalize.py` for why entity normalization is deliberately conservative.
 
 **Never write an adapter against a guessed format.** Work from a real sample.

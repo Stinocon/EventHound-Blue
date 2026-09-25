@@ -50,7 +50,7 @@ builds an `eventhound` image (`analysis/eventhound.Dockerfile`) with every tool 
   `static/lib.js`): the page accumulates uploads per view, and re-sending all of them on every click
   appended the earlier ones to the case a second time — the store's duplicate check hashes the whole
   batch, so it refuses an exact repeat and not an overlapping one.
-  Files are routed by extension where that is unambiguous and by CONTENT where it is not: an Okta
+  Files are routed by extension where that is unambiguous and by CONTENT where it is not: an osquery
   export and an osquery log are both `.json` (sniffed on their own shapes), a CrowdStrike clipboard
   and a THOR report are both `.txt`, and a registry hive or an `$MFT` arrives with no extension at
   all (`regf` / `FILE` magic). A `.yar`/`.yara` upload is treated as RULES and applied to whatever

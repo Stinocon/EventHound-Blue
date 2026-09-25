@@ -7,7 +7,7 @@ into a common DuckDB store and execute long-tail recipes and cross-source correl
 Usage:
     uv run python -m engine.run_analytics --evtx a.evtx --evtx b.evtx --pcap c.pcap
     uv run python -m engine.run_analytics --pcap c.pcap --json-out out.json   # for the GUI
-    uv run python -m engine.run_analytics --thor scan.txt --registry keys.reg --okta log.json
+    uv run python -m engine.run_analytics --thor scan.txt --registry keys.reg --osquery log.json
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     # Everything past EVTX/EVTX-full/PCAP is reported as one count: eight more per-source counters
     # here would restate build_source_kwargs() rather than orient the reader on what is running.
     other = (len(args.log) + len(args.registry) + len(args.registry_hives) + len(args.mft)
-             + len(args.thor) + len(args.thor_csv) + len(args.okta) + len(args.osquery)
+             + len(args.thor) + len(args.thor_csv) + len(args.osquery)
              + len(args.crowdstrike) + (1 if args.yara_target else 0))
     print(f"[1/2] Record construction (EVTX={len(args.evtx)}, EVTX-full={len(args.evtx_full)}, "
           f"PCAP={len(args.pcap)}, other={other})…")

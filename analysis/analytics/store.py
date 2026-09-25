@@ -298,7 +298,7 @@ def insert_records(con, records: Iterable[dict], start_id: int = 0) -> int:
         with _without_probing_for_pandas():
             con.executemany(f"INSERT INTO events ({col_list}) VALUES ({placeholders})", rows)
         # Normalized timestamp. Most adapters emit ISO UTC with 'Z', but not all of them can: two
-        # paths pass the source's own spelling straight through (the Okta `published` field, and the
+        # paths pass the source's own spelling straight through (osquery's `unixTime`, and the
         # generic JSONL log adapter when neither of its parsers recognises the value). Stripping the
         # 'Z' and casting to a naive TIMESTAMP handled the common case and silently mishandled the
         # rest: `2026-03-12T10:30:00+02:00` became 10:30 instead of 08:30, so a source in another

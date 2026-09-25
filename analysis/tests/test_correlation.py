@@ -115,7 +115,7 @@ _PHASE_RECORDS = [
     {"@timestamp": "2026-07-20T10:00:50Z", "event.source": "log:fw.log", "event.category": "network",
      "user.name": "SYSTEM", "destination.ip": "10.0.0.1"},
     # far outside the window: must not be swept in
-    {"@timestamp": "2026-07-20T18:00:00Z", "event.source": "okta",
+    {"@timestamp": "2026-07-20T18:00:00Z", "event.source": "crowdstrike",
      "event.category": "authentication", "event.action": "user-authentication",
      "user.name": "unrelated.person"},
     # a SECOND technique-carrying family, seconds away. It belongs to its own phase's evidence and
@@ -151,7 +151,7 @@ def test_phase_corroboration() -> int:
     assert "WS-09$" not in note and "SYSTEM" not in note, f"machine/service account named: {note}"
     assert "10.0.0.1" not in note, f"declared infrastructure named as corroboration: {note}"
     # 4) events eight hours away are not "in the same window"
-    assert "okta" not in note, f"an event outside the window was swept in: {note}"
+    assert "crowdstrike" not in note, f"an event outside the window was swept in: {note}"
     # 5) the width of the claim is reported: "in the same window" over an hour is not the same
     #    statement as over half a minute, and the reader cannot weigh it without the number
     assert 0 < ph["corroboration_window_s"] <= 600, ph["corroboration_window_s"]

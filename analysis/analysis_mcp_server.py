@@ -49,7 +49,6 @@ def analyze(
     registry_hives: list[str] | None = None,
     mft: list[str] | None = None,
     thor: list[dict] | None = None,
-    okta: list[str] | None = None,
     osquery: list[str] | None = None,
     yara: list[dict] | None = None,
     crowdstrike: list[str] | None = None,
@@ -59,7 +58,7 @@ def analyze(
 
     Sources are LOCAL paths. `evtx` (Hayabusa/Sigma detections), `evtx_full` (EvtxECmd full
     stream), `pcap` (tshark+Zeek), `mft` (a directory of MFTECmd JSON), `registry` (RECmd JSON
-    directory or a .reg export), `registry_hives`, `okta`, `osquery`, `crowdstrike` (detection
+    directory or a .reg export), `registry_hives`, `osquery`, `crowdstrike` (detection
     clipboard or LogScale JSON). `logs`/`thor`/`yara` are dicts: `logs` = [{"path": …, "fmt":
     "access|jsonl|regex|syslog"}], `thor` = [{"report": …} or {"md5s": …}], `yara` = [{"rules":
     …, "target": …}]. `infra_ips` declares infrastructure addresses to demote from clustering.
@@ -71,7 +70,7 @@ def analyze(
     errors: list[str] = []
     records = runner.build_records(
         evtx=evtx, evtx_full=evtx_full, pcap=pcap, logs=logs, registry=registry,
-        registry_hives=registry_hives, mft=mft, thor=thor, okta=okta, osquery=osquery,
+        registry_hives=registry_hives, mft=mft, thor=thor, osquery=osquery,
         yara=yara, crowdstrike=crowdstrike, errors=errors,
     )
     if not records:

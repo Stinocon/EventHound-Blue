@@ -22,7 +22,19 @@ exported analysis bundle, so an archived case records which build produced it.
   and locals, a closure over a loop variable).
 - **The source CLIs are tested end to end on mock files** (`tests/test_cli_sources.py`), and the two
   report renderers that had no test — the EVTX-slice Markdown and the JSON levels — now have one.
-  Suite at 75% coverage, 114 tests.
+  Suite at 75% coverage, 112 tests.
+- **Okta is removed.** It was the one adapter that could never be exercised on real data — it
+  needed a System Log export, no substitute existed — and an unvalidatable source is a claim of
+  capability nobody can check. Adapter, CLI, tests, GUI routing and demo data all go with it.
+- **osquery is validated against a real result log** (5.23.1, macOS, pseudonymized), and the
+  capture named five mapping defects the documentation did not: `logged_in_users.user` (every
+  session lost its user), the socket's near end and remote port, a socket with no port written as
+  `destination.port = 0`, a Unix-domain socket path written into `process.path`, and the query name
+  mistaken for the table name. All five fixed and pinned by tests on the real fixture.
+- **A second demo scenario: a Windows live triage** (`run_demo --scenario triage-windows`), where
+  the Security log was cleared and only the live state can say the payload is still running.
+  `tests/test_triage.py` rebuilds the same evidence without osquery and requires the address and
+  artifact bridges to disappear.
 - **Two defects the review of the artifact parse found.** A value whose last argument ends in a
   program extension was returned whole, so `mshta.exe http://203.0.113.20/x.exe` minted a local
   `x.exe` and bridged it to unrelated hosts; the artifact is now the shortest leading run ending in a

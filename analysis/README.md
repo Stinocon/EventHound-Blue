@@ -48,11 +48,11 @@ schema, the same store and the same correlation — that is the point of the sui
 | an `$MFT` | `run_mft` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
 | a THOR scan report | `run_thor` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
 | a CrowdStrike export | `run_crowdstrike` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
-| an Okta System Log export | `run_okta` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
 | an osquery result log | `run_osquery` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
 | YARA rules and something to scan | `run_yara` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
 | **several of the above at once** | `run_report --evtx a.evtx --pcap c.pcap --thor s.txt …` | [One road in](#one-road-in--every-source-reaches-the-correlation) |
 | **nothing at all** | `run_demo` | [The demo](#the-demo--a-runnable-product-without-customer-evidence) |
+| **a compromised Windows endpoint, now** | `run_demo --scenario triage-windows` | [Triage](../docs/triage-windows.md) |
 
 Everything below is the reasoning and the detail. State and backlog live in
 [`docs/roadmap.md`](../docs/roadmap.md); the component map and the flow live in
@@ -78,7 +78,7 @@ test dataset licensing).
 
 ```
 analysis/
-├── adapters/   # parsers for source -> common schema (evtx, crowdstrike, okta, …)
+├── adapters/   # parsers for source -> common schema (evtx, crowdstrike, osquery, …)
 ├── schema/     # common ECS-subset schema (common-schema.md)
 ├── sigma/      # Sigma rules used/curated
 ├── yara_rules/ # YARA rules for file/memory (dir not named 'yara' to avoid shadowing `import yara`)
@@ -300,7 +300,7 @@ Sources are appended one at a time, so peak memory is one source rather than the
 analytics then run off the file. The parsing step upstream still materializes its own file: this
 lifts the ceiling on the analytics side, not on the adapters'.
 
-`new` and `add` take the **same eleven sources** as `run_report` — they share `add_source_args` and
+`new` and `add` take the **same ten sources** as `run_report` — they share `add_source_args` and
 `build_source_kwargs` rather than keeping a third copy of the list, which is how four of them (MFT,
 osquery, CrowdStrike, YARA) had been reachable from the GUI and from `run_report` but not from a
 case.
@@ -328,7 +328,7 @@ the same incident". Entities acting as bridges (IP/domain/user/host/hash/file) e
 
 Eleven adapters exist; for a long time three of them had no way to be used. `$MFT` had neither a CLI
 nor an endpoint (while the GUI showed an availability badge for it), registry hives had an endpoint
-that bypassed the pipeline and handed raw rows back, and an Okta export uploaded to the GUI fell
+that bypassed the pipeline and handed raw rows back, and an osquery result log uploaded to the GUI fell
 through to the generic log adapter — which reads top-level keys only, so the actor, the client
 address and the outcome vanished. Meanwhile the three CLIs that *correlate* accepted four sources
 out of eleven, which made the command line the surface where correlation was impossible.
@@ -337,7 +337,7 @@ Everything now goes through `analytics.runner.build_records()`:
 
 ```bash
 uv run python -m engine.run_mft '$MFT'                                   # new: MFT via MFTECmd
-uv run python -m engine.run_analytics --thor scan.txt --registry keys.reg --okta log.json
+uv run python -m engine.run_analytics --thor scan.txt --registry keys.reg --osquery q.jsonl
 uv run python -m engine.run_report --pcap c.pcap --registry-hive SYSTEM --mft '$MFT' --out r.html
 uv run python -m engine.run_export --crowdstrike detections.txt --osquery results.log --out b.json
 uv run python -m engine.run_logs auth.log --fmt syslog                   # syslog was supported, not offered
@@ -350,8 +350,8 @@ uv run python -m engine.run_logs auth.log --fmt syslog                   # syslo
 
 A fresh clone can analyse nothing: there is no evidence in the repository and there never will be
 (§9/§10). `demo/scenario.py` closes that gap by *declaring* one intrusion — estate, chain, timings,
-the bridges it must produce — and writing it out as nine source types in pure stdlib: two
-appliance logs, an Okta export, the JSONL Hayabusa emits, a `.reg`, a THOR report, a CrowdStrike
+the bridges it must produce — and writing it out as eight source types in pure stdlib: two
+appliance logs, the JSONL Hayabusa emits, a `.reg`, a THOR report, a CrowdStrike
 clipboard export, an osquery result log, a YARA rule with the artifact it matches, and a capture
 built packet by packet. Files, not records: generating records would prove the store and the
 recipes while leaving the adapters — the part that reads a real artifact — untested.
@@ -397,7 +397,7 @@ produces it — the engine's *logic* is pinned whenever a rule or adapter is add
 - `tests/test_analytics.py` — synthetic records → long-tail recipes + correlation (no Hayabusa/
   tshark): process stacking, rare parent-child, rare DNS, non-standard port, beaconing,
   cross-source indicator.
-- `tests/test_cli_sources.py` — the source CLIs (CrowdStrike, Okta, osquery, generic logs) driven
+- `tests/test_cli_sources.py` — the source CLIs (CrowdStrike, osquery, generic logs) driven
   end to end on mock files: records produced, correlation run, JSON written, a missing file failed
   cleanly. Nothing here needs an external binary, which is why it is asserted rather than assumed.
 - `tests/test_report_evtx.py` / `tests/test_report_json.py` — the two report renderers that had no
@@ -426,7 +426,7 @@ new CLI is covered the day it is written), asserts all of them start, and runs t
 real — decode, the full case lifecycle, the export → report bundle round trip, the corpus. Coverage
 follows the subprocesses it spawns, otherwise the number would keep reporting 0% for code it was
 demonstrably running. The suite sits at **75%** with the optional `yara` extra installed
-(114 tests, measured 2026-09-25) — the figure depends on which optional
+(112 tests, measured 2026-09-25) — the figure depends on which optional
 dependencies are present, which is why it is quoted with that condition rather than as a single
 number. It read 71% when the CLI smoke test landed in July; the value here is re-read from
 `tools/check.sh` rather than carried forward, because a coverage number quoted from memory is

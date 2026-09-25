@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # parameter shadows the module inside the function and every call raises AttributeError on a list.
 from adapters import crowdstrike as crowdstrike_adapter  # noqa: E402
 from adapters import pcap_zeek_runner  # noqa: E402
-from adapters import (evtx_evtxecmd, evtx_hayabusa, okta_systemlog,  # noqa: E402
+from adapters import (evtx_evtxecmd, evtx_hayabusa,  # noqa: E402
                       osquery_result, pcap_tshark, registry_regfile, thor_scan, yara_scan)
 from analytics import case_store, correlate, recipes, store  # noqa: E402
 
@@ -103,7 +103,6 @@ def build_records(evtx: list[str] | None = None, pcap: list[str] | None = None,
                   registry_hives: list[str] | None = None,
                   mft: list[str] | None = None,
                   thor: list[dict] | None = None,
-                  okta: list[str] | None = None,
                   osquery: list[str] | None = None,
                   yara: list[dict] | None = None,
                   crowdstrike: list[str] | None = None,
@@ -326,16 +325,6 @@ def build_records(evtx: list[str] | None = None, pcap: list[str] | None = None,
             errors.append(f"thor {Path(name).name}: {describe_error(exc)}")
     if _progress and thor:
         _progress("parsing", 88, "THOR done")
-    # --- okta (System Log JSON/NDJSON export) ---
-    for path in (okta or []):
-        try:
-            records.extend(okta_systemlog.load_records(path))
-        except Exception as exc:  # noqa: BLE001
-            if errors is None:
-                raise
-            errors.append(f"okta {Path(path).name}: {describe_error(exc)}")
-    if _progress and okta:
-        _progress("parsing", 89, "Okta done")
     # --- yara (YARA rule scanning) ---
     for spec in (yara or []):
         try:

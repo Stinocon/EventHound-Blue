@@ -1,7 +1,7 @@
 """Entity normalization for cross-tool correlation (Phase 2+).
 
 Different tools spell the same entity differently, so an exact string join misses real links:
-    user  — Okta `alice@corp.example`, EVTX `CORP\\alice`, a log `alice`  → all the same actor
+    user  — an EDR export's `alice@corp.example`, EVTX's `CORP\\alice`, a log's `alice` → one actor
     host  — `DC1`, `dc1.corp.example`                                     → the same machine
     hash  — Sysmon `A1B2…` (upper), THOR `a1b2…` (lower)                  → the same artifact
 This module canonicalizes those ambiguous indicators so correlation joins on the *entity*, not the
@@ -215,7 +215,7 @@ def source_family(v) -> str | None:
 
     Adapters disagree on how much they put in `event.source`: PCAP and the generic log adapter
     qualify it with the file (`pcap:capture.pcap`, `log:access.log`), every other adapter emits a
-    bare family constant (`evtx`, `thor`, `okta`). Correlation counts *how many independent tools*
+    bare family constant (`evtx`, `thor`, `osquery`). Correlation counts *how many independent tools*
     corroborate an indicator, and confidence grows with that count — so reading the qualified label
     as the unit made two captures from one sensor look like two tools, while two EVTX files from
     two hosts looked like one. The family is the unit for that count; the qualified label stays as

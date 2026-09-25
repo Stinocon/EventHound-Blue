@@ -120,8 +120,8 @@ def test_ts_parsed_honours_the_offset() -> int:
     It used to be `TRY_CAST(replace(ts,'Z',''))`, which silently DROPPED an offset — a source
     two hours ahead landed two hours late, which moves it into or out of an episode and reorders
     the timeline — and turned epoch seconds into NULL, which removes the record from every
-    temporal view without saying so. Both spellings reach the store today: the Okta adapter and
-    the generic JSONL log adapter pass the source's own value straight through.
+    temporal view without saying so. Both spellings reach the store today: the osquery and generic JSONL log
+    adapters pass the source's own value straight through.
     """
     from datetime import datetime
     recs = [{"@timestamp": t, "event.source": "log:x", "event.action": "a"} for t in (

@@ -31,7 +31,6 @@ SigmaHQ community rules fill significant gaps, covering log sources that Hayabus
 | Network (DNS, firewall)       | `network/dns/`, `network/firewall/`, `network/zeek/`, `network/cisco/` |
 | Web server (Apache, Nginx)    | `web/product/apache/`, `web/product/nginx/`            |
 | Cloud (AWS, Azure, GCP, M365) | `cloud/`                                               |
-| Identity (Okta, Cisco Duo)    | `identity/`                                            |
 
 ## Usage with Hayabusa
 

@@ -29,7 +29,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from adapters import evtx_hayabusa  # noqa: E402
 from analytics import case_store, runner  # noqa: E402
-from demo import scenario  # noqa: E402
+from demo import scenario, triage_windows  # noqa: E402
+
+# The scenarios the demo can run. `incident` is an estate seen from its logs; `triage-windows` is one
+# endpoint seen twice, what it recorded and what it IS. Adding one is a module plus a line here —
+# the ingest, the case, the correlation and the report are the same for both.
+SCENARIOS = {"incident": scenario, "triage-windows": triage_windows}
 
 DEFAULT_OUT = Path(__file__).resolve().parents[1] / "demo" / "out"
 DEFAULT_CASE = "demo"
@@ -56,19 +61,13 @@ def available_tools() -> dict[str, bool]:
     }
 
 
-# The order the evidence is offered in when the demo is loaded one source at a time. It follows the
-# STORY — perimeter, then identity, then the endpoint, then the tools that corroborate the artifact,
-# then the network — rather than the adapters' own order, because the point of loading it stepwise
-# is watching a bridge appear the moment a second tool names the same thing. The all-at-once path
-# produces the same case: order changes what the analyst SEES happen, never the result.
-DEMO_ORDER = ("logs", "okta", "evtx", "registry", "thor", "crowdstrike", "yara", "osquery", "pcap")
-
 
 def demo_records(outdir: str | Path = DEFAULT_OUT, evtx_dir: str | Path | None = None,
                  errors: list[str] | None = None,
                  per_source: dict[str, list[dict]] | None = None,
-                 only: str | None = None) -> list[dict]:
-    """Generate the artifacts and read them back through the normal adapters.
+                 only: str | None = None,
+                 scenario_module=None) -> list[dict]:
+    """Generate a scenario's artifacts and read them back through the normal adapters.
 
     `per_source`, when given, is filled with the records each source contributed — the demo appends
     them to the case one at a time, and a test that wants to check a single adapter can use the
@@ -76,37 +75,46 @@ def demo_records(outdir: str | Path = DEFAULT_OUT, evtx_dir: str | Path | None =
 
     `only` restricts the work to one source, which is what the stepwise load needs: the artifacts
     are regenerated (pure stdlib, deterministic, cheap) but only that source's adapter runs, so
-    stepping through nine sources does not mean nine tshark invocations.
+    stepping through eight sources does not mean eight tshark invocations. It is also what lets a
+    test ask the question that matters about a source — what is missing WITHOUT it (see
+    `tests/test_triage.py`).
+
+    The order comes from the scenario (`sc.ORDER`), because it is the story's order and not the
+    adapters': the point of loading it stepwise is watching a bridge appear the moment a second tool
+    names the same thing. The all-at-once path produces the same case either way.
     """
-    plan = scenario.generate(outdir)
+    sc = scenario_module or scenario
+    if only is not None and only not in sc.ORDER:
+        raise ValueError(f"scenario {sc.__name__!r} has no source {only!r} "
+                         f"(it has: {', '.join(sc.ORDER)})")
+    plan = sc.generate(outdir)
     kwargs = plan["build_records"]
     records: list[dict] = []
 
-    if only is None or only == "evtx":
-        # EVTX is the spine of the story, and the one source that does not go through a binary here
-        # (see the module docstring).
-        evtx_records = evtx_hayabusa.load_records(plan["hayabusa_jsonl"])
-        if evtx_dir:
-            evtx_files = sorted(str(p) for p in Path(evtx_dir).rglob("*.evtx"))
-            if evtx_files:
-                evtx_records += runner.build_records(evtx=evtx_files, errors=errors)
-        records += evtx_records
-        if per_source is not None:
-            per_source["evtx"] = evtx_records
-
-    # Every other source one at a time, so a failure names the source that failed.
-    for key in ("logs", "okta", "registry", "thor", "crowdstrike", "osquery", "yara", "pcap"):
+    for key in sc.ORDER:
         if only is not None and only != key:
             continue
-        recs = runner.build_records(errors=errors, **{key: kwargs[key]})
+        if key == "evtx":
+            # EVTX is the spine of both scenarios, and the one source that does not go through a
+            # binary here (see the module docstring).
+            recs = evtx_hayabusa.load_records(plan["hayabusa_jsonl"])
+            if evtx_dir:
+                evtx_files = sorted(str(p) for p in Path(evtx_dir).rglob("*.evtx"))
+                if evtx_files:
+                    recs += runner.build_records(evtx=evtx_files, errors=errors)
+        elif key in kwargs:
+            recs = runner.build_records(errors=errors, **{key: kwargs[key]})
+        else:
+            continue
         records += recs
         if per_source is not None:
             per_source[key] = recs
     return records
 
 
-def build_demo_case(case_id: str = DEFAULT_CASE, *, only: str | None = None, reset: bool = False,
-                    outdir: str | Path = DEFAULT_OUT, evtx_dir: str | None = None) -> dict:
+def build_demo_case(case_id: str | None = None, *, only: str | None = None, reset: bool = False,
+                    outdir: str | Path = DEFAULT_OUT, evtx_dir: str | None = None,
+                    scenario_module=None) -> dict:
     """Put the simulated incident into a case — the one implementation the CLI and the GUI share.
 
     It exists because the two surfaces had each written the ingest loop out, and the GUI's copy was
@@ -114,25 +122,29 @@ def build_demo_case(case_id: str = DEFAULT_CASE, *, only: str | None = None, res
     the browser returned one cluster holding the whole estate while the same demo on the command
     line returned the incident. A demonstration that differs by surface demonstrates nothing.
     """
+    sc = scenario_module or scenario
+    case_id = case_id or sc.DEFAULT_CASE
     if reset and case_store.exists(case_id):
         case_store.delete(case_id)
     if not case_store.exists(case_id):
-        case_store.create(case_id, title="EventHound demo — simulated intrusion")
-        # The scenario knows which of its addresses is infrastructure (the DC is also the resolver,
-        # as on most Windows estates); declaring it is what an analyst would do, and without it the
-        # resolver co-occurs with everything and the single cluster is the whole network.
-        case_store.set_infrastructure_ips(case_id, scenario.INFRASTRUCTURE_IPS)
+        case_store.create(case_id, title=sc.CASE_TITLE)
+        # The scenario knows which of its addresses is infrastructure (in the incident the DC is
+        # also the resolver, as on most Windows estates); declaring it is what an analyst would do,
+        # and without it the resolver co-occurs with everything and the single cluster is the whole
+        # network.
+        case_store.set_infrastructure_ips(case_id, sc.INFRASTRUCTURE_IPS)
 
     errors: list[str] = []
     per_source: dict[str, list[dict]] = {}
-    demo_records(outdir, evtx_dir=evtx_dir, errors=errors, per_source=per_source, only=only)
-    for label in DEMO_ORDER:
+    demo_records(outdir, evtx_dir=evtx_dir, errors=errors, per_source=per_source, only=only,
+                 scenario_module=sc)
+    for label in sc.ORDER:
         recs = per_source.get(label)
         if recs:
             case_store.append(case_id, recs, label=label)
     return {"case": case_id, "sources": {k: len(v) for k, v in per_source.items()},
             "errors": errors, "tools": available_tools(),
-            "infrastructure_ips": list(scenario.INFRASTRUCTURE_IPS)}
+            "infrastructure_ips": list(sc.INFRASTRUCTURE_IPS)}
 
 
 def _print_level(tools: dict[str, bool], evtx_dir: str | None) -> None:
@@ -148,8 +160,11 @@ def _print_level(tools: dict[str, bool], evtx_dir: str | None) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Run the suite against a simulated incident.")
-    ap.add_argument("--out", default=str(DEFAULT_OUT), help="where to write the artifacts")
-    ap.add_argument("--case", default=DEFAULT_CASE, help="case id to accumulate them into")
+    ap.add_argument("--scenario", default="incident", choices=tuple(SCENARIOS),
+                    help="which scenario to run (default: incident — an estate from its logs; "
+                         "triage-windows is one endpoint, from its logs and its live state)")
+    ap.add_argument("--out", default=None, help="where to write the artifacts")
+    ap.add_argument("--case", default=None, help="case id to accumulate them into")
     # DEFAULT ON. The demo regenerates byte-identical artifacts, so `case_store.append`'s
     # already-added guard fires on the second invocation and every one after it — the README's own
     # command raised a traceback for anyone who ran it twice, which is the single most likely
@@ -169,12 +184,17 @@ def main(argv: list[str] | None = None) -> int:
                                          "(default: reports/demo-<level>.<ext>)")
     args = ap.parse_args(argv)
 
-    out = Path(args.out)
+    sc = SCENARIOS[args.scenario]
+    args.case = args.case or sc.DEFAULT_CASE
+    # Under `out/`, which is gitignored: the artifacts carry hostnames and addresses (documentation
+    # range, but a generated file in the tree is a leak waiting for a `git add -A`). `DEFAULT_OUT.parent`
+    # put them in `analysis/demo/<scenario>/`, which nothing ignores.
+    out = Path(args.out) if args.out else DEFAULT_OUT / sc.DEFAULT_CASE
     tools = available_tools()
     _print_level(tools, args.evtx_dir)
 
     if args.artifacts_only:
-        plan = scenario.generate(out)
+        plan = sc.generate(out)
         print(f"\nArtifacts written to {plan['outdir']}:")
         for p in sorted(plan["outdir"].rglob("*")):
             if p.is_file():
@@ -182,11 +202,12 @@ def main(argv: list[str] | None = None) -> int:
         print("\nLoad them from the GUI (or pass them to run_report) to watch the correlation grow.")
         return 0
 
-    built = build_demo_case(args.case, reset=args.reset, outdir=out, evtx_dir=args.evtx_dir)
+    built = build_demo_case(args.case, reset=args.reset, outdir=out, evtx_dir=args.evtx_dir,
+                            scenario_module=sc)
     per_source = built["sources"]
 
     print("\nIngested into case", args.case)
-    for label in DEMO_ORDER:
+    for label in sc.ORDER:
         if label in per_source:
             print(f"  {label:11} {per_source[label]:5d} records")
     for e in built["errors"]:
@@ -228,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         from engine import run_report
         report = (Path(args.report_out) if args.report_out
                   else Path(__file__).resolve().parents[1] / "reports"
-                  / f"demo-{args.level}.{run_report._EXT[args.format]}")
+                  / f"{args.scenario}-{args.level}.{run_report._EXT[args.format]}")
         report.parent.mkdir(parents=True, exist_ok=True)
         meta = {"name": "EventHound demo", "sources": sorted(per_source)}
         report.write_text(run_report._render(result, meta, args.format, args.level, meta["name"]),

@@ -9,7 +9,7 @@ changelog:
   - 1.13 (2026-09-11) — the README is re-read and tightened: a duplicated "Privacy and anonymization" heading and a broken "Backup" list (said "three things", listed one) are repaired, the gate is described as 13 sections rather than 16, several garbled sentences are reworded, and "Development and tests" + "Troubleshooting" move to docs/development.md and docs/troubleshooting.md to shorten the front page.
   - 1.12 (2026-09-11) — a realistic, literature-grounded sample intrusion is added alongside the correlation demo: `analysis/demo/generate_samples.py` writes a credential-theft/lateral-movement scenario mapped phase-by-phase to ATT&CK techniques, Event IDs and SigmaHQ rules, documented in `docs/samples.md` with screenshots in `docs/screenshots/`.
   - 1.11 (2026-09-11) — final release pass: the product version is v1.0.0 (`/api/health` and exported bundles report 1.0.0, matching the tag), and the demo is described as nine source types (the previous "ten" double-counted the two appliance logs).
-  - 1.10 (2026-09-11) — the maturity section stops reading as "never tested, don't trust": it states plainly that this is a proof of concept, tested lightly on lab cases (public datasets, synthetic captures, the simulated incident), with the Okta/osquery adapters named as the least-exercised. A leftover Troubleshooting entry about the removed on-box assistant is gone, and a garbled `install`/Hayabusa bullet is repaired.
+  - 1.10 (2026-09-11) — the maturity section stops reading as "never tested, don't trust": it states plainly that this is a proof of concept, tested lightly on lab cases (public datasets, synthetic captures, the simulated incident), with the osquery adapter named as the least-exercised. A leftover Troubleshooting entry about the removed on-box assistant is gone, and a garbled `install`/Hayabusa bullet is repaired.
   - 1.9 (2026-09-11) — publication sweep after the RAG/on-box-LLM removal of 2026-09-01. The clone command now names this repository (`EventHound-Blue` — the old `EventHound` repo is deleted); a new section documents the analysis MCP server (`analyze` / `analyze_case` / `eid_lookup`, §9 pseudonymization and the `_privacy` warning); and the two known-gaps clauses that still described the removed RAG are gone — the changelogs above keep the removal in the past tense, where it belongs.
   - 1.8 (2026-08-30) — the README as a document for someone who did not write it. New **Development and tests** (the one runner, the two per-clone setup steps, the per-suite commands, the `uv sync --extra` trap where naming one extra uninstalls the other, and the clean-clone check — `git clone`, not `git archive`, which has no `.git` and answers a different question) and **Troubleshooting** (port, no-reload GUI, GitHub rate limit, the two guards that are meant to be loud on a fresh clone, the memory refusal, the shared Ollama daemon, a source that produced nothing). Three claims corrected against the code rather than reread: "Three interchangeable surfaces" survived in "Using it" after the opening paragraph was rewritten to stop saying it; the Licence section still listed **vendor documentation** among the RAG material, removed on 2026-08-27; and `./setup.sh all` was presented as "and you're done" while leaving Qdrant empty — the RAG index is built by a separate step, from PDFs that are not in this repository, and that is now said where the promise is made rather than 200 lines below it. The demo's `--reset` default is documented (it is what stopped the README's own first command from failing on its second run). Left alone deliberately: "three adversarial rounds, all dirty, counter at zero" is correct — the roadmap entries 1.30-1.32 are the four scopes INSIDE the third round, not three more rounds.
   - 1.7 (2026-08-27) — CrowdStrike and SonicWall product documentation removed from the RAG (collections `cs_falcon_docs` and `sonicwall_docs` deleted, `docs/crowdstrike/` and `docs/sonicwall/` removed): both products are moving to a separate project built on their official MCP servers. The RAG keeps what grounds the analysis itself — frameworks, regulations, ACN. The CrowdStrike *ingest adapter* stays: it parses an export the analyst already holds, like every other artifact source.
@@ -38,7 +38,7 @@ changelog:
 
 **EventHound** is a **local, offline** cybersecurity analysis suite that combines two main components:
 
-1. **Analysis engine** (`analysis/`) — ingestion of EVTX, PCAP, registry, MFT, THOR, Okta, CrowdStrike and generic logs, normalization into a common ECS schema, detection (Hayabusa/Sigma) plus the full **Hayabusa toolbox** (metrics, keyword/regex search, keyword pivots, base64 extraction), long-tail analytics (DuckDB), cross-source correlation, YARA matching, baseline/diffing, case management, threat-intel enrichment (Shodan/VT/ThreatFox, egress-gated) and compliance mapping (GDPR/NIS2/DORA). CLI-first; the web GUI (`http://127.0.0.1:8700`) is a thin interface over the engine. The knowledge that grounds an analysis — MITRE ATT&CK, GDPR/NIS2/DORA, ACN — lives as plain markdown under `method/`, read directly.
+1. **Analysis engine** (`analysis/`) — ingestion of EVTX, PCAP, registry, MFT, THOR, CrowdStrike, osquery and generic logs, normalization into a common ECS schema, detection (Hayabusa/Sigma) plus the full **Hayabusa toolbox** (metrics, keyword/regex search, keyword pivots, base64 extraction), long-tail analytics (DuckDB), cross-source correlation, YARA matching, baseline/diffing, case management, threat-intel enrichment (Shodan/VT/ThreatFox, egress-gated) and compliance mapping (GDPR/NIS2/DORA). CLI-first; the web GUI (`http://127.0.0.1:8700`) is a thin interface over the engine. The knowledge that grounds an analysis — MITRE ATT&CK, GDPR/NIS2/DORA, ACN — lives as plain markdown under `method/`, read directly.
 
 2. **Deterministic tools** (`tools/`) — CVSS/EPSS scoring, compliance, Shodan/VT enrichment, workspace hygiene.
 
@@ -182,7 +182,7 @@ Two interchangeable surfaces over the same engine — the GUI is a thin layer, n
 around the CLI — and an external agentic harness on top of what they produce (see the paragraph at the
 top of this file for what it can and cannot do).
 
-**No evidence to hand? Run the demo first.** It generates one coherent intrusion as nine source types — appliance logs, an Okta export, an EVTX detection timeline, a `.reg`, a THOR report, a CrowdStrike export, an osquery log, a YARA match and a capture — then ingests them through the ordinary adapters and produces the full analysis and report. Nothing in it is real: the estate is `corp.example` and documentation address space, so it is safe to show anyone.
+**No evidence to hand? Run the demo first.** It generates one coherent intrusion as eight source types — appliance logs, an EVTX detection timeline, a `.reg`, a THOR report, a CrowdStrike export, an osquery log, a YARA match and a capture — then ingests them through the ordinary adapters and produces the full analysis and report. Nothing in it is real: the estate is `corp.example` and documentation address space, so it is safe to show anyone.
 
 ```bash
 cd analysis
@@ -196,8 +196,19 @@ A second, richer sample — a credential-theft and lateral-movement intrusion wi
 to its ATT&CK technique, Event ID and Sigma rule, plus screenshots of the analysis — is documented
 in [`docs/samples.md`](docs/samples.md) (generator `analysis/demo/generate_samples.py`).
 
+**A third scenario, and the one to read if you want the point of the suite in one page.** A Windows
+endpoint where the Security log was cleared before you arrived, so the history has a hole and the
+only thing that still answers "what is happening now" is the live state:
+
+```bash
+uv run python -m engine.run_demo --scenario triage-windows
+```
+
+The walkthrough — what to collect, the osquery commands, what the engine concludes and why, and what
+the scenario deliberately does not cover — is [`docs/triage-windows.md`](docs/triage-windows.md).
+
 The case is rebuilt from scratch on every run (`--reset`, the default): without that, a second run
-re-added the same nine sources to the same case and the store refused the batch, so the README's own
+re-added the same eight sources to the same case and the store refused the batch, so the README's own
 first command failed the second time anyone tried it.
 
 The report lands in `analysis/reports/`, and the demo declares its own infrastructure address — in this
@@ -308,7 +319,7 @@ Common problems and their answers are in [`docs/troubleshooting.md`](docs/troubl
 third hand-maintained inventory of the same facts; three copies of one list drift, and then nobody
 knows which is current. In short:
 
-- **EventHound** — the engine is operational across eleven sources, with correlation, the attack
+- **EventHound** — the engine is operational across ten sources, with correlation, the attack
   map, cases, reports and bundles, the local GUI, and a demo that runs the whole thing with no
   customer evidence at all.
 - **Knowledge base** — markdown under `method/` that grounds *analysis*: `framework/` (MITRE
@@ -330,10 +341,10 @@ What that means in practice, if you are deciding whether to point this at someth
 - **Tested, lightly, on lab cases.** The EVTX → Hayabusa/Sigma path, PCAP, generic logs, the
   correlation, the reports and the case model have all been run against lab inputs — the public
   EVTX-ATTACK-SAMPLES set, deterministic synthetic captures, and the simulated incident
-  (`engine.run_demo`), which exercises nine sources end to end from files on disk. This is a proof
+  (`engine.run_demo`), which exercises eight sources end to end from files on disk. This is a proof
   of concept, not a hardened product: some function may be incomplete, inaccurate, or broken in a
   way no lab input has triggered.
-- **Least-exercised**: the **Okta** and **osquery** adapters were built against a documented schema
+- **Least-exercised**: the **osquery** adapter was built against a documented schema
   and synthetic fixtures rather than a real client export, and say so in their own docstrings.
 - **Not covered on a fresh clone**: the EVTX/Hayabusa, MFT and registry-hive tests all SKIP without
   the binaries and a sample, so a green suite proves the adapters and the demo — not the headline

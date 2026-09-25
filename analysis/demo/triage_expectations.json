@@ -1,0 +1,49 @@
+{
+  "note": "Expectations for the Windows live triage in demo/triage_windows.py, in the same shape as demo/expectations.json and eval/correlation_corpus.json, so engine/run_eval.py's checkers verify all three rather than being rewritten per dataset. The assertions that carry the argument are not here: tests/test_triage.py rebuilds the same evidence WITHOUT osquery and asserts that the address bridge and every artifact bridge disappear. A number in a file says a bridge exists; rebuilding without the source says why.",
+  "cases": [
+    {
+      "id": "triage-live-state",
+      "title": "the live state names the address the log had already recorded, and the file the scan had found",
+      "requires": [],
+      "rationale": "The Security log was cleared an hour into the intrusion (T1070.001), so the logon cannot be reconstructed and the connection event survives only in the Sysmon channel — as a record of something that happened. The address is a bridge because the LIVE socket names it too: `shared_indicators` counts tool families, and the two families here are a log that recorded a connection and a state snapshot that says the connection is still open. That is the whole reason a state source is in the suite, and the reason the page can say 'the payload is still running' rather than 'the payload ran'. The artifact bridge is the same argument on a file: the scanner found `fontdrvhost.exe` on disk, and the process table says that file is what is running. The two `absent` entries are the negative controls — `svchost.exe` and `services.exe` are on every Windows host, they appear in more than one family here, and a correlation that linked them would link everything.",
+      "knob": "adapters/osquery_result.py (socket columns → destination.ip/port, source.ip/port; file_events target_path → file.path) + correlate.shared_indicators",
+      "expect": {
+        "bridges": [
+          {
+            "indicator": "198.51.100.13",
+            "kind": "ip",
+            "min_families": 2,
+            "max_families": 2,
+            "match_type": "exact"
+          },
+          {
+            "indicator": "fontdrvhost.exe",
+            "kind": "file",
+            "min_families": 2
+          },
+          {
+            "indicator": "ws-07",
+            "kind": "host",
+            "min_families": 3,
+            "match_type": "normalized"
+          },
+          {
+            "indicator": "m.bianchi",
+            "kind": "user",
+            "min_families": 2
+          }
+        ],
+        "absent": [
+          {
+            "indicator": "svchost.exe",
+            "kind": "file"
+          },
+          {
+            "indicator": "services.exe",
+            "kind": "file"
+          }
+        ]
+      }
+    }
+  ]
+}

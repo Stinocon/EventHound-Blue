@@ -298,25 +298,15 @@ def _run(client) -> int:
         assert r.status_code == 200 and r.json()["deleted"] == "test-case-1", r.text[:200]
         assert client.get("/api/cases/test-case-1").status_code == 404
 
-        # Content-sniff routing: an Okta export and a YARA rule uploaded with the evidence must
-        # reach their own adapters. Before this, an Okta `.json` fell through to the generic log
-        # adapter — which reads top-level keys only, so the actor, the client address and the
-        # outcome vanished — and a `.yar` was rejected outright as an unsupported extension.
+        # Content-sniff routing: a YARA rule uploaded with the evidence must reach its own adapter.
+        # A `.yar` used to be rejected outright as an unsupported extension.
         sys.path.insert(0, str(ANALISI_DIR))
         from demo import scenario as _scenario
         _demo_dir = Path(tempfile.mkdtemp(prefix="eh-demo-src-"))
         try:
             _plan = _scenario.generate(_demo_dir)["build_records"]
-            okta_bytes = Path(_plan["okta"][0]).read_bytes()
             rules_bytes = (Path(_plan["yara"][0]["rules"]) / "eventhound_demo.yar").read_bytes()
             target_bytes = Path(_plan["yara"][0]["target"]).read_bytes()
-
-            r = client.post("/api/analyze", data={"no_case": "true"}, files=[
-                ("files", ("okta_system_log.json", okta_bytes, "application/json")),
-            ])
-            assert r.status_code == 200, r.text[:300]
-            dm = _sse_complete(r.text)["_meta"]
-            assert dm["okta"] == 1 and dm["logs"] == 0, dm
 
             # A rule plus the file it matches: the rule is held aside and applied to the evidence,
             # which is what an analyst uploading both plainly means.

@@ -20,7 +20,7 @@ separated by more than 300 s, so they land in different ones — the demo theref
 measured session-gap band instead of assuming it.
 
     1  initial access   attacker brute-forces the appliance portal, then authenticates as a real
-                        user                                     (access log + syslog + Okta)
+                        user                                          (access log + syslog)
     2  installation     the payload runs on ws-11, installs a service and a Run key, and is seen
                         on disk                    (EVTX + .reg + THOR + YARA + CrowdStrike)
     3  credential access LSASS is read                                              (EVTX + CS)
@@ -100,6 +100,16 @@ P5_C2 = 2700         # C2 and exfiltration
 P6_CLEANUP = 3900    # anti-forensics
 
 
+DEFAULT_CASE = "demo"
+CASE_TITLE = "EventHound demo — simulated intrusion"
+
+# The order the evidence is offered in when the demo is loaded one source at a time. It follows the
+# STORY — perimeter, then the endpoint, then the tools that corroborate the artifact, then the
+# network — rather than the adapters' own order: the point of loading it stepwise is watching a
+# bridge appear the moment a second tool names the same thing.
+ORDER = ("evtx", "logs", "registry", "thor", "crowdstrike", "yara", "osquery", "pcap")
+
+
 def at(offset: int) -> datetime:
     return T0 + timedelta(seconds=offset)
 
@@ -110,7 +120,7 @@ def iso(offset: int) -> str:
 
 
 def iso_s(offset: int) -> str:
-    """Second-resolution ISO-8601 UTC (Okta, THOR-adjacent formats)."""
+    """Second-resolution ISO-8601 UTC (the THOR-adjacent formats)."""
     return at(offset).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
 
 
@@ -176,36 +186,6 @@ def write_sma_syslog(out: Path) -> Path:
              "IPTABLES: IN=lo OUT= SRC=127.0.0.1 DST=127.0.0.1 PROTO=TCP SPT=44100 DPT=8080"),
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return path
-
-
-def write_okta(out: Path) -> Path:
-    """Okta System Log export (JSON array of LogEvent) → the identity layer of the intrusion."""
-    path = out / "okta_system_log.json"
-
-    def ev(off: int, etype: str, result: str, msg: str, ip: str = ATTACKER_IP) -> dict:
-        return {
-            "uuid": f"demo-{off}",
-            "published": at(off).strftime("%Y-%m-%dT%H:%M:%S.000") + "Z",
-            "eventType": etype,
-            "severity": "WARN" if result == "FAILURE" else "INFO",
-            "displayMessage": msg,
-            "actor": {"id": "00udemo", "type": "User",
-                      "alternateId": f"{USER}@{DOMAIN}", "displayName": "M. Rossi"},
-            "client": {"ipAddress": ip, "userAgent": {"rawUserAgent": "python-requests/2.31"},
-                       "geographicalContext": {"country": "n/a"}},
-            "outcome": {"result": result,
-                        "reason": "INVALID_CREDENTIALS" if result == "FAILURE" else None},
-        }
-
-    events = [
-        ev(P1_ACCESS + 30, "user.session.start", "FAILURE", "User login to Okta"),
-        ev(P1_ACCESS + 50, "user.session.start", "FAILURE", "User login to Okta"),
-        ev(P1_ACCESS + 60, "user.session.start", "SUCCESS", "User login to Okta"),
-        ev(P1_ACCESS + 65, "user.authentication.auth_via_mfa", "SUCCESS",
-           "Authentication of user via MFA"),
-    ]
-    path.write_text(json.dumps(events, indent=2), encoding="utf-8")
     return path
 
 
@@ -505,7 +485,6 @@ def generate(outdir: str | Path) -> dict:
 
     access = write_sma_access(out)
     syslog = write_sma_syslog(out)
-    okta = write_okta(out)
     jsonl = write_hayabusa_jsonl(out)
     registry = write_registry(out)
     thor = write_thor(out)
@@ -520,7 +499,6 @@ def generate(outdir: str | Path) -> dict:
         "build_records": {
             "logs": [{"path": str(access), "fmt": "access"},
                      {"path": str(syslog), "fmt": "syslog"}],
-            "okta": [str(okta)],
             "registry": [str(registry)],
             "thor": [{"report": str(thor)}],
             "crowdstrike": [str(crowdstrike)],

@@ -166,26 +166,26 @@ def test_combined_clis_take_every_source() -> None:
         plan = scenario.generate(Path(td) / "src")["build_records"]
         reg = plan["registry"][0]
         thor = plan["thor"][0]["report"]
-        okta = plan["okta"][0]
+        cs = plan["crowdstrike"][0]
         out = Path(td) / "analysis.json"
 
-        p = _run(["engine.run_analytics", "--registry", reg, "--thor", thor, "--okta", okta,
+        p = _run(["engine.run_analytics", "--registry", reg, "--thor", thor, "--crowdstrike", cs,
                   "--json", str(out)], timeout=180)
         assert p.returncode == 0, (p.returncode, p.stdout[-500:], p.stderr[-500:])
         result = json.loads(out.read_text(encoding="utf-8"))
         families = set((result.get("summary") or {}).get("by_source") or {})
-        assert {"registry", "thor", "okta"} <= families, families
+        assert {"registry", "thor", "crowdstrike"} <= families, families
 
         # run_report and run_export must accept the same surface; rendering one is enough to prove
         # the flags reach build_records rather than merely being declared.
         rep = Path(td) / "report.html"
-        p = _run(["engine.run_report", "--thor", thor, "--okta", okta,
+        p = _run(["engine.run_report", "--thor", thor, "--crowdstrike", cs,
                   "--out", str(rep), "--format", "html"], timeout=180)
         assert p.returncode == 0, (p.returncode, p.stdout[-500:], p.stderr[-500:])
         assert rep.exists() and rep.stat().st_size > 0
 
         bundle = Path(td) / "bundle.json"
-        p = _run(["engine.run_export", "--registry", reg, "--okta", okta, "--out", str(bundle)],
+        p = _run(["engine.run_export", "--registry", reg, "--crowdstrike", cs, "--out", str(bundle)],
                  timeout=180)
         assert p.returncode == 0, (p.returncode, p.stdout[-500:], p.stderr[-500:])
         assert bundle.exists() and json.loads(bundle.read_text(encoding="utf-8"))
