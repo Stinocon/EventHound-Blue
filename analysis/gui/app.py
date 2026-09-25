@@ -32,7 +32,7 @@ sys.path.insert(0, str(ANALISI_DIR))
 from analytics import baseline, case_store, runner  # noqa: E402
 import json as _json  # noqa: E402
 from engine import (evtxecmd_runner, hayabusa_runner, mftcmd_runner,  # noqa: E402
-                    recmd_runner, report_html)
+                    recmd_runner)
 from engine import bundle as bundle_mod  # noqa: E402
 from engine.version import APP_VERSION as _APP_VERSION  # noqa: E402
 

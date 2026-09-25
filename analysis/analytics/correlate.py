@@ -780,7 +780,7 @@ def incident_clusters(con, min_families: int = 2, min_entities: int = 2, limit: 
         phase = r.get("kc_phase")
         tacs = {t for t in (r.get("tactics") or "").split(",") if t}
         evidence = bool(r.get("attack_evidence"))
-        for key, (kind, val) in zip(keys, ents):
+        for key, (kind, val) in zip(keys, ents, strict=True):
             ent_kind[key] = (kind, val)
             ent_sources.setdefault(key, set()).add(r.get("family"))
             if evidence:

@@ -149,7 +149,7 @@ def _logon_type(ed: dict, d: dict):
     return None
 
 
-def _outcome(eid, keywords, category):
+def _outcome(eid, keywords):
     kw = keywords.lower() if isinstance(keywords, str) else ""
     if "failure" in kw:
         return "failure"
@@ -175,7 +175,7 @@ def _record_from_evtxecmd(d: dict, source: str = "evtx_full") -> dict:
         "event.action": action,
         "event.code": eid if isinstance(eid, int) and not isinstance(eid, bool) else _port_int(eid),
         "event.channel": channel,
-        "event.outcome": _outcome(eid, d.get("Keywords"), category),
+        "event.outcome": _outcome(eid, d.get("Keywords")),
         "host.name": d.get("Computer"),
         # EvtxECmd also resolves a top-level `UserName` (often `DOMAIN\\account`); it is the
         # fallback, not the primary, because EventData names the subject of the event precisely.

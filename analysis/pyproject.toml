@@ -25,6 +25,10 @@ yara = ["yara-python>=4.3"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    # Static analysis for the whole repo (root `ruff.toml`), run by tools/check-lint.sh. Dev-only
+    # for the same reason as pytest: the product runs on `dependencies` alone, and the gate skips
+    # the step instead of failing when ruff is absent.
+    "ruff>=0.6",
 ]
 
 [tool.uv]

@@ -125,7 +125,7 @@ def render_svg(graph: dict, width: int = 900) -> str:
                     f'{_esc(e["source"])} ↔ {_esc(e["target"])}: {e["weight"]} shared events'
                     f'</title></line>')
 
-    for phase, nodes in grouped:
+    for _phase, nodes in grouped:
         for n in nodes:
             x, ny = positions[n["id"]]
             # Radius from how many independent tools saw it, not from how loud it is: an entity

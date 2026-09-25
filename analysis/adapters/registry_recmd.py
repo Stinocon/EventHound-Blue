@@ -89,6 +89,14 @@ def _record_from_recmd(d: dict, hive_name: str = "") -> dict | None:
         "event.kind": "state",
         "rule.description": category,
     }
+    # The artifact the finding contributes (see registry_asep.program_from_value): a Run value is a
+    # command line and the program it launches is the binary the other sources name. Without it a
+    # hive's persistence reached the store and no bridge. The RAW value goes in, not `str(...)`: a
+    # DWORD or a binary blob is not a string, and coercing it here would defeat the type guard the
+    # shared helper applies — the .reg adapter gates on the value type for the same reason.
+    program = registry_asep.program_from_value(category, value_name, value_data)
+    if program:
+        rec["file.path"] = program
     return {k: v for k, v in rec.items() if v not in (None, [], "")}
 
 

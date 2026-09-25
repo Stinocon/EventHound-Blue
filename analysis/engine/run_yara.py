@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     from collections import Counter
     rule_counts = Counter(r.get("rule.name", "?") for r in result.get("records", []))
     if rule_counts:
-        print(f"== Top rules by match count ==")
+        print("== Top rules by match count ==")
         for rule, count in rule_counts.most_common(args.top):
             techs = set()
             for r in result.get("records", []):

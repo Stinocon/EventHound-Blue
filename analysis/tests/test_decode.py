@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # ── unit under test ────────────────────────────────────────────────────────
 from decode.decoders import (
-    DecodeResult,
     decode_base58,
     decode_base64,
     decode_hex,
@@ -128,7 +127,7 @@ def test_xor_single() -> None:
     _check("XOR confidence", r.confidence == 0.7)
 
     # Random bytes → should return None (no key produces all-printable)
-    r2 = decode_xor_single(b"\x00\x01\x02\x03")
+    decode_xor_single(b"\x00\x01\x02\x03")
     # Some degenerate key may produce printable output; we accept either
     # outcome — the test just checks it doesn't crash.
     _check("XOR random bytes handled", True)

@@ -5,7 +5,7 @@
       "id": "demo-bridges",
       "title": "the designed bridges are found, and the designed noise is not",
       "requires": [],
-      "rationale": "Every bridge here exercises a different mechanism on purpose. The hash joins three tools that spell it in different case and under two different field names (`file.hash` from THOR, `file.hash.sha256` from CrowdStrike and osquery). The account joins five: a UPN from Okta, a bare name from the appliance log, and `CORP\\\\m.rossi` from EVTX, THOR's file owner and the CrowdStrike user field. The host joins a short name, an FQDN and an uppercase one. Family counts are bounded on BOTH sides, because over-counting inflates confidence exactly as much as under-counting hides a link. The four `absent` entries each appear in two families and must still not bridge them: a correlation that links everything measures nothing.",
+      "rationale": "Every bridge here exercises a different mechanism on purpose. The hash joins three tools that spell it in different case and under two different field names (`file.hash` from THOR, `file.hash.sha256` from CrowdStrike and osquery). The account joins five: a UPN from Okta, a bare name from the appliance log, and `CORP\\\\m.rossi` from EVTX, THOR's file owner and the CrowdStrike user field. The host joins a short name, an FQDN and an uppercase one. The artifact joins four, and the fourth is the `.reg` export: the Run key and the service ImagePath both name `svcupdate.exe`, and before the ASEP value was parsed as the command line it is, a registry finding contributed no artifact at all and the persistence of the intrusion bridged to nothing. Family counts are bounded on BOTH sides, because over-counting inflates confidence exactly as much as under-counting hides a link. The four `absent` entries each appear in two families and must still not bridge them: a correlation that links everything measures nothing.",
       "knob": "normalize.canon_* / is_generic_* / source_family; store._cell hash and file fallbacks",
       "expect": {
         "bridges": [
@@ -33,7 +33,7 @@
           {
             "indicator": "svcupdate.exe",
             "kind": "file",
-            "min_families": 3
+            "min_families": 4
           },
           {
             "indicator": "203.0.113.77",
@@ -172,18 +172,18 @@
     },
     {
       "id": "demo-yara",
-      "title": "the scanner adds a fourth tool to the artifact bridge",
+      "title": "the scanner adds a fifth tool to the artifact bridge",
       "requires": [
         "yara"
       ],
-      "rationale": "The YARA target IS the payload's bytes, so the match is real and the file it names is the file the other three tools report. With the scanner installed the artifact bridge must span four families rather than three \u2014 the count is the whole point, since confidence rises with it.",
+      "rationale": "The YARA target IS the payload's bytes, so the match is real and the file it names is the file the other four tools report. With the scanner installed the artifact bridge must span five families rather than four \u2014 the count is the whole point, since confidence rises with it.",
       "knob": "adapters.yara_scan (file.name/file.path \u2192 file_canon)",
       "expect": {
         "bridges": [
           {
             "indicator": "svcupdate.exe",
             "kind": "file",
-            "min_families": 4
+            "min_families": 5
           }
         ]
       }

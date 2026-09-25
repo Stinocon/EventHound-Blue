@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from decode.runner import scan_text, scan_fields  # noqa: E402
+from decode.runner import scan_text  # noqa: E402
 
 
 # ── helpers ────────────────────────────────────────────────────────────────

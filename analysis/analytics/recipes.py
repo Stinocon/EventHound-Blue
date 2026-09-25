@@ -21,7 +21,7 @@ COMMON_PORTS = {20, 21, 22, 23, 25, 53, 80, 88, 110, 123, 135, 139, 143, 389,
 def _rows(con, sql: str, params: list | None = None) -> list[dict]:
     cur = con.execute(sql, params or [])
     cols = [d[0] for d in cur.description]
-    return [dict(zip(cols, r)) for r in cur.fetchall()]
+    return [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]
 
 
 def technique_frequency(con) -> list[dict]:

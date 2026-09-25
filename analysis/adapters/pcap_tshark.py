@@ -42,7 +42,9 @@ def _tshark() -> str:
 
 
 def _record(cols: list[str], source: str = "pcap") -> dict | None:
-    f = dict(zip(_FIELDS, cols))
+    # `cols` is padded to the field count by the caller; a value containing a literal tab yields
+    # extra columns that are ignored rather than turning one malformed line into a failed capture.
+    f = dict(zip(_FIELDS, cols, strict=False))
     ts = f.get("frame.time_epoch") or ""
     when = None
     if ts:
@@ -108,7 +110,7 @@ def load_records(pcap_path: str | Path) -> list[dict]:
         # Corrupted/truncated/non-capture PCAP: tshark exits non-zero. Report a clean domain error
         # (with tshark's stderr), consistent with "don't make up, skip it" — no raw traceback.
         msg = (exc.stderr or "").strip() or f"tshark exited with code {exc.returncode}"
-        raise RuntimeError(f"tshark failed to read {pcap_path}: {msg}")
+        raise RuntimeError(f"tshark failed to read {pcap_path}: {msg}") from None
     out = proc.stdout
 
     records: list[dict] = []

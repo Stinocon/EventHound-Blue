@@ -1,11 +1,12 @@
 ---
 title: Common analysis schema (ECS subset)
-updated: 2026-09-01
-version: 0.9.0
+updated: 2026-09-25
+version: 0.10.0
 related_files:
   - analysis/DESIGN.md
   - analysis/README.md
 changelog:
+  - "0.10.0 — 2026-09-25 — a registry finding contributes an artifact. An ASEP value is a command line, and both registry adapters parse the program it launches into `file.path` (`registry_asep.program_from_value`): quoting, arguments and the NT native prefix are read, the program is not guessed, and the DLL-component lists (`LSA Packages`, `Known DLLs`, `AppInit`) deliberately contribute nothing. Before this, a Run key whose data named the payload bridged to no other source at all."
   - "0.9.0 — 2026-09-01 — R6-A follow-through: the defects that round left OPEN are closed. Zeek notices join on `uid` (not a non-existent `conn` column) and reach a record; one record per application-layer transaction, so a keep-alive connection's several HTTP requests/DNS answers are no longer collapsed to the last. `rule.name` (YARA rule, Zeek notice) is a store column. YARA no longer stamps the matched file as `process.name`. osquery `remote_address` → `destination.ip` (it is the OTHER end). LogScale adds `ImageFileName`/`CommandLine`/`DomainName`/`RemoteAddressIP4` and detects a JSON-ARRAY export. Hayabusa's abbreviated tactic vocabulary (DefImpair/CredAccess/…) is normalized to ATT&CK names. `.reg` `hex(1)`/`hex(2)` are decoded to their string, so the indicator layer fires on `REG_EXPAND_SZ`. MFT/RECmd timestamps are normalized to ISO-8601 (space→T, 7-digit→6-digit fraction) and THOR's year fallback is the report's mtime, not `datetime.now().year`."
   - "0.8.0 — 2026-08-30 — the `registry.*` group and its `ioc.*`/`rule.description` companions now reach an output: `recipes.registry_findings` reads them from the store (not from the capped record list), the HTML report has a Registry section at every level, and the GUI renders the same rows for both roads in. They had had columns since 0.7.0 and no page since ever — a Run key that IS the persistence was ingested, correlated and invisible."
   - "0.7.0 — 2026-08-29 — new derived store column `attack_evidence` (BOOLEAN): does this record carry ATT&CK evidence — a technique ID of the documented shape, or a kill-chain phase resolved from a declared tactic. It exists because that question had been asked in five places in three different spellings and every spelling was wrong for some real input; the correlation, the per-host kill-chain depth, the clusters, the technique frequency and the timeline now all read it. No source-facing field change: it is computed from `attack.techniques` and `attack.tactics`, which are unchanged."
@@ -102,6 +103,7 @@ run on this schema in DuckDB.
 | `registry.data` | string | Value data (raw, as string) |
 | `registry.hive` | string | Hive guess: SYSTEM, SOFTWARE, SAM, SECURITY, NTUSER, UNKNOWN |
 | `registry.type` | string | REG_SZ, REG_DWORD, REG_BINARY, REG_EXPAND_SZ, REG_MULTI_SZ, REG_NONE |
+| `file.path` | keyword | the program an ASEP value launches, when it is one: a Run/RunOnce/RunServices value, a service `ImagePath`, an IFEO `Debugger`, a Winlogon `Userinit`/`Shell`, an Active Setup `StubPath`. Read as the shortest leading run of the value that ends in a program extension (so quoting, arguments and the NT native prefix are handled and the arguments are never part of it), never guessed, never minted from a DLL component list, and never from a value that is a URL |
 | `rule.description` | string | ASEP category (e.g. "User ASEP - Run", "IFEO Debugger") or null |
 | `ioc.description` | string | IOC description if suspicious, or null |
 | `ioc.severity` | string | IOC severity: low, medium, high, or null |

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import ipaddress
 import json
-import os
 import re
 import sys
 import urllib.error

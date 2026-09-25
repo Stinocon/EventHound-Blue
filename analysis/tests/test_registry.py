@@ -82,12 +82,16 @@ def run_synthetic() -> None:
     assert r["registry.key"] == SYNTH_RUN_KEY["KeyPath"]
     assert r["registry.value"] == "MaliciousService"
     assert r["registry.data"] == r"C:\Windows\system32\malware.exe"
+    assert r["file.path"] == r"C:\Windows\system32\malware.exe", r
     assert r["rule.description"] == "User ASEP - Run"
     assert r["@timestamp"].endswith("Z"), f"timestamp not normalized: {r['@timestamp']}"
 
     r2 = a._record_from_recmd(SYNTH_SERVICE)
     assert r2 is not None
     assert r2["rule.description"] == "Services"
+    # `ImagePath` holds the program; the artifact is what lets a hive bridge to the sources that
+    # name the same binary.
+    assert r2["file.path"] == r"C:\Windows\malware.exe", r2
 
     r3 = a._record_from_recmd(SYNTH_WINLOGON)
     assert r3 is not None
@@ -102,6 +106,7 @@ def run_synthetic() -> None:
     assert r4 is not None
     assert r4["rule.description"] == "IFEO Debugger"
     assert r4["registry.data"] == r"C:\Windows\system32\cmd.exe"
+    assert r4["file.path"] == r"C:\Windows\system32\cmd.exe", r4
 
     # Timestamp missing → None
     no_ts = dict(SYNTH_RUN_KEY)

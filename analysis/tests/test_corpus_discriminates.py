@@ -49,7 +49,7 @@ def run() -> int:
     _beacon = recipes.beaconing
     problems.append(_mutation(
         "beaconing max_jitter 0.25 -> 5.0", "beaconing-regular-vs-jittery",
-        lambda: setattr(recipes, "beaconing", lambda con, **kw: _beacon(con, max_jitter=5.0)),
+        lambda: setattr(recipes, "beaconing", lambda con, **_kw: _beacon(con, max_jitter=5.0)),
         lambda: setattr(recipes, "beaconing", _beacon)))
 
     # 2. Confidence weights inverted: a shared hash stops outranking a shared IP.
@@ -65,14 +65,14 @@ def run() -> int:
     _generic = normalize.is_generic_user
     problems.append(_mutation(
         "is_generic_user disabled", "ubiquitous-entities-excluded",
-        lambda: setattr(normalize, "is_generic_user", lambda v: False),
+        lambda: setattr(normalize, "is_generic_user", lambda _v: False),
         lambda: setattr(normalize, "is_generic_user", _generic)))
 
     # 4. Realm conflict ignored: two different people named alice merge silently.
     _realms = normalize.realms_conflict
     problems.append(_mutation(
         "realms_conflict always False", "identity-realm-conflict",
-        lambda: setattr(normalize, "realms_conflict", lambda d: False),
+        lambda: setattr(normalize, "realms_conflict", lambda _d: False),
         lambda: setattr(normalize, "realms_conflict", _realms)))
 
     # 5. No high-signal actions: log clearing drops out of the timeline.

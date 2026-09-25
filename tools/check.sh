@@ -43,6 +43,12 @@ echo "== docs: YAML frontmatter of tracked .md parses (hard) =="
 # accept, some of it for weeks. A convention nothing checks is a convention that quietly stops.
 python3 tools/check-doc-frontmatter.py || fail=1
 
+echo "== static analysis: ruff over analysis/ and tools/ (hard when installed) =="
+# Reported by `ruff check` on its own first run: a duplicate member in a word set, four raises that
+# dropped the exception chain, unused imports and locals. The rule set in ruff.toml is the green
+# subset on purpose — the value is catching the NEXT one, not recording a backlog.
+tools/check-lint.sh || fail=1
+
 echo "== guard: INBOUND guard smoke test (hard) =="
 if tools/test-guards.sh >/dev/null 2>&1; then
   echo "  OK"

@@ -139,11 +139,14 @@ ladder: does it need to exist, does it already exist here, does the standard lib
 function suffice — before writing a module.
 
 **Tests are the contract.** `tools/check.sh` runs the whole gate (leak boundary, the injection guard,
-the engine suite with coverage, the GUI in Python and JS, the oracles) and must be green before a
+the documentation guards, static analysis with ruff, the engine suite with coverage, the GUI in
+Python and JS, the oracles) and must be green before a
 commit. A test whose external binary or dataset is missing reports a **skip**, not a pass, so a red
 one is a real failure and a green one is not hiding an untested path. Inside `analysis/`,
 `uv run pytest tests/` (add `--cov` for the number, `uv sync --extra dev` if pytest is missing; do
-NOT add `-q` — `pyproject.toml` already sets it). JS: `cd analysis/gui && node --test tests/*.test.js`
+NOT add `-q` — `pyproject.toml` already sets it). Static analysis is `cd analysis && uv run ruff
+check ../analysis ../tools` (rules in the root `ruff.toml`; the gate SKIPs it when ruff is absent).
+JS: `cd analysis/gui && node --test tests/*.test.js`
 — the glob, not the directory.
 
 ## Things that will trip you up

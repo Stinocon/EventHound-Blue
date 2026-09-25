@@ -94,6 +94,9 @@ def run() -> int:
         srows = run_logons._read_csv(succ_csv)
         frows = run_logons._read_csv(fail_csv)
 
+    # The failure CSV parses too (usually empty for this sample): the summary's two halves are
+    # both readable, so a logon view that silently lost the failures would show up here.
+    assert isinstance(frows, list), frows
     remote = [r for r in srows if r["type_num"] in run_logons.REMOTE_LOGON_TYPES]
     assert remote, f"FAIL  {SAMPLE_REL}: no remote logon detected"
     # the WMI sample shows network logons (Type 3) from source 10.0.2.17

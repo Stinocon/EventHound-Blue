@@ -1,0 +1,24 @@
+# Static analysis for the whole repository, in one place.
+#
+# The rule set is deliberately narrow and green: every rule here is one the codebase already
+# satisfies, so the gate reports a regression and not a backlog. Widening it is a choice to be made
+# on purpose — a linter that starts red is a linter everyone learns to ignore.
+#
+# Run by `tools/check-lint.sh`, which `tools/check.sh` calls: hard when ruff is installed, SKIP
+# otherwise, exactly like pytest. ruff is a dev-only dependency (`cd analysis && uv sync --extra dev`)
+# and the product runs without it.
+
+target-version = "py310"
+
+[lint]
+select = [
+    "F",      # pyflakes: unused imports/locals, undefined names
+    "ARG",    # unused function arguments
+    "B",      # flake8-bugbear: closure-over-loop-variable, bare raises, zip without strict, ...
+    "E722",   # bare `except:` — never distinguishable from a KeyboardInterrupt
+]
+ignore = [
+    # FastAPI's own idiom: `File(...)` / `Body(...)` as an argument default carries the declaration
+    # the framework reads, it is not the mutable-default bug this rule exists to catch.
+    "B008",
+]

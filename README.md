@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.15
-updated: 2026-09-11
+version: 1.16
+updated: 2026-09-25
 changelog:
+  - 1.16 (2026-09-25) — the maturity section drops the "registry findings contribute no artifact entity" gap (closed: a registry ASEP value now yields the program it launches, so a Run key bridges to the sources naming the same binary), and the static-analysis step is part of the gate.
   - 1.15 (2026-09-11) — the inline screenshots are the light report (attack map + summary), not the dark GUI captures: the report's light theme reads far better on a documentation page.
   - 1.14 (2026-09-11) — the attack-map and dashboard screenshots are shown inline in "Using it", so the first thing a reader sees after the demo is what the product draws.
   - 1.13 (2026-09-11) — the README is re-read and tightened: a duplicated "Privacy and anonymization" heading and a broken "Backup" list (said "three things", listed one) are repaired, the gate is described as 13 sections rather than 16, several garbled sentences are reworded, and "Development and tests" + "Troubleshooting" move to docs/development.md and docs/troubleshooting.md to shorten the front page.
@@ -339,7 +340,8 @@ What that means in practice, if you are deciding whether to point this at someth
   source. `-rs` shows you which.
 - **Known gaps carried deliberately**, each with its reasoning in [`docs/roadmap.md`](docs/roadmap.md):
   the kill chain derived only from ATT&CK evidence, which the endpoint sources are alone in carrying;
-  registry findings stored but not yet contributing an artifact entity.
+  and the host-artifact adapters (Prefetch, Amcache, LNK, SRUM, browser history) that wait on a real
+  sample rather than on a guess.
 
 ## Licence
 

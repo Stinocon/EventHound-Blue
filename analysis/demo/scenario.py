@@ -282,8 +282,11 @@ def write_registry(out: Path) -> Path:
     """Native `.reg` export of the persistence keys left on ws-11.
 
     Its records carry no host and no user — a bare `.reg` has neither — so they contribute nothing
-    to the entity bridges. That is a real limit of the source, and the demo shows it rather than
-    papering over it.
+    to the identity bridges. That is a real limit of the source, and the demo shows it rather than
+    papering over it. They DO contribute an artifact: the Run key and the service ImagePath both
+    name the payload, and the adapter parses each value as the command line it is
+    (`registry_asep.program_from_value`), which is what gives this source a place in the file
+    bridge.
     """
     path = out / "ws-11_run-keys.reg"
     esc = MALWARE_PATH.replace("\\", "\\\\")

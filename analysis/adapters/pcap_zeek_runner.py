@@ -55,7 +55,7 @@ def run_zeek(pcap_path: Path, work_dir: Path) -> dict[str, Path]:
         )
     except subprocess.CalledProcessError as exc:
         msg = (exc.stderr or "").strip() or f"zeek exited with code {exc.returncode}"
-        raise RuntimeError(f"zeek failed to process {pcap_path}: {msg}")
+        raise RuntimeError(f"zeek failed to process {pcap_path}: {msg}") from None
 
     logs: dict[str, Path] = {}
     for entry in sorted(work_dir.iterdir()):

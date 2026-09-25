@@ -14,7 +14,6 @@ and no evidence file are run for real, end to end.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import tempfile

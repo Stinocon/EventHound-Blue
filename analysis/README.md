@@ -1,7 +1,7 @@
 ---
 title: EventHound — analysis and correlation engine
-updated: 2026-09-11
-version: 0.13.1
+updated: 2026-09-25
+version: 0.14.0
 related_files:
   - analysis/DESIGN.md
   - analysis/schema/common-schema.md
@@ -9,6 +9,7 @@ related_files:
   - docs/analysis/threat-hunting-evtx.md
   - docs/analysis/performance.md
 changelog:
+  - "0.14.0 — 2026-09-25 — registry findings finally contribute an artifact: `registry_asep.program_from_value` reads the program an ASEP value launches into `file.path`, so a Run key or a service ImagePath bridges to the EVTX/YARA/CrowdStrike/osquery records naming the same binary. The coverage section is re-measured (75%, 114 tests) and records that the source CLIs are now exercised on mock files rather than only started."
   - "0.13.1 — 2026-09-11 — the demo is described as nine source types, not 'ten real source files'."
   - "0.13.0 — 2026-09-11 — RAG/LLM removal reflected in the body, not only the changelog: the Validation section no longer frames itself as a mirror of the RAG golden queries; the performance section drops the tool-call corpus (the removed `run_toolbench`/`eval/toolcall_prompts.json`); packaging names the single-image `eventhound` compose stack and the platform-neutral `uninstall.sh`."
   - "0.12.0 — 2026-08-30 — `--json-out PATH` is the canonical way to write JSON from the nine CLIs that took a path (`--json PATH` still works, deprecated, and says so once on stderr); `run_case new|add` reached seven of the eleven sources and now shares `run_report.add_source_args`, so MFT, osquery, CrowdStrike and YARA evidence can enter a persistent case from the CLI. Adapter failures report the tool's own message instead of the bare exception class, and a missing Zeek is stated rather than passed over."
@@ -396,6 +397,12 @@ produces it — the engine's *logic* is pinned whenever a rule or adapter is add
 - `tests/test_analytics.py` — synthetic records → long-tail recipes + correlation (no Hayabusa/
   tshark): process stacking, rare parent-child, rare DNS, non-standard port, beaconing,
   cross-source indicator.
+- `tests/test_cli_sources.py` — the source CLIs (CrowdStrike, Okta, osquery, generic logs) driven
+  end to end on mock files: records produced, correlation run, JSON written, a missing file failed
+  cleanly. Nothing here needs an external binary, which is why it is asserted rather than assumed.
+- `tests/test_report_evtx.py` / `tests/test_report_json.py` — the two report renderers that had no
+  test: the EVTX-slice Markdown (level counts, technique grouping, timeline ordering, empty case)
+  and the summary/detailed/full JSON split, including that `detailed` really drops `records`.
 ```
 uv run pytest tests/                      # the whole suite
 uv run pytest tests/ --cov                # ...with coverage
@@ -418,12 +425,13 @@ executed by a test. `tests/test_cli_smoke.py` fixes that: it discovers the entry
 new CLI is covered the day it is written), asserts all of them start, and runs the offline ones for
 real — decode, the full case lifecycle, the export → report bundle round trip, the corpus. Coverage
 follows the subprocesses it spawns, otherwise the number would keep reporting 0% for code it was
-demonstrably running. The suite sits at **70%** with the optional `yara` extra installed and
-**69%** without it (89 tests, measured 2026-08-27) — the figure depends on which optional
+demonstrably running. The suite sits at **75%** with the optional `yara` extra installed
+(114 tests, measured 2026-09-25) — the figure depends on which optional
 dependencies are present, which is why it is quoted with that condition rather than as a single
 number. It read 71% when the CLI smoke test landed in July; the value here is re-read from
 `tools/check.sh` rather than carried forward, because a coverage number quoted from memory is
-exactly the kind of claim this section exists to refuse.
+exactly the kind of claim this section exists to refuse. The source CLIs moved from ~35% to ~93%
+when `tests/test_cli_sources.py` stopped merely starting them and fed each one a mock file.
 
 ### The correlation corpus
 
@@ -472,7 +480,12 @@ a timing threshold would only encode the speed of the machine that wrote it.
 - **Registry**: two paths into the common schema — native `.reg` export parsing
   (`adapters/registry_regfile.py`, wired into the main analytics pipeline/GUI upload) and live-hive
   parsing via **RECmd** (`engine/recmd_runner.py` + `adapters/registry_recmd.py`, ASEP/persistence
-  filtering, dedicated `POST /api/registry` in the GUI; requires `dotnet`).
+  filtering, dedicated `POST /api/registry` in the GUI; requires `dotnet`). An ASEP value is parsed
+  as the command line it is (`registry_asep.program_from_value`), so a Run key or a service
+  `ImagePath` contributes a `file.path` — the artifact that lets a registry finding bridge to the
+  other sources naming the same binary. The `LSA Packages`, `Known DLLs` and `AppInit` values name
+  DLL components and contribute nothing on purpose: minting a file entity from a component list
+  would bridge unrelated hosts through a shared system DLL.
 - **MFT**: `engine/mftcmd_runner.py` + `adapters/mft_mftecmd.py` wrap **MFTECmd** (NTFS $MFT →
   common schema: path, timestamps, size, attributes). Adapter and runner are implemented and
   tested (`tests/test_mft.py`); GUI availability is health-checked but not yet wired to a

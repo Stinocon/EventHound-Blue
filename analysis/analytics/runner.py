@@ -156,7 +156,7 @@ def build_records(evtx: list[str] | None = None, pcap: list[str] | None = None,
             staged = stage_batch_dir(paths, Path(tmpdir))
             # Staging renames duplicate basenames, so a skipped file comes back under its staged
             # name; map it to the caller's own before anyone reads it.
-            original = {s: Path(p).name for s, p in zip(staged, paths)}
+            original = {s: Path(p).name for s, p in zip(staged, paths, strict=True)}
             with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as tmp:
                 jsonl = Path(tmp.name)
             skipped: list[str] = []
@@ -270,10 +270,10 @@ def build_records(evtx: list[str] | None = None, pcap: list[str] | None = None,
     # --- registry (.reg native export files) ---
     for pi, path in enumerate(registry or []):
         try:
-            def _reg_progress(pct: float, msg: str) -> None:
+            def _reg_progress(pct: float, msg: str, _pi: int = pi) -> None:
                 if _progress:
                     # Scale to 70-85% range
-                    base = 70 + (pi / max(len(registry), 1)) * 15
+                    base = 70 + (_pi / max(len(registry), 1)) * 15
                     _progress("registry", base + pct * 0.15, msg)
             recs = registry_regfile.load_records(path, progress=_reg_progress)
             records.extend(recs)

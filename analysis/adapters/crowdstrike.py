@@ -91,7 +91,7 @@ def _clean(rec: dict) -> dict:
 
 def _parse_clipboard(text: str) -> list[dict]:
     """Parse the Key: Value clipboard format, one detection per block."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     blocks = re.split(r"\n\s*\n", text.strip())
     out: list[dict] = []

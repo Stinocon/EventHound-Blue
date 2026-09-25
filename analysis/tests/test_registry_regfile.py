@@ -39,6 +39,14 @@ SAMPLE_REG_IFEO_IOC = r"""Windows Registry Editor Version 5.00
 "Debugger"="C:\\Windows\\System32\\cmd.exe"
 """
 
+# The command line as an operator actually sees it in regedit: quoting, arguments, and the NT
+# native `\??\` prefix that names the same file as the Win32 spelling.
+SAMPLE_REG_NT_PREFIX = r"""Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run]
+"Updater"="\\??\\C:\\Windows\\Temp\\svcupdate.exe -install"
+"""
+
 SAMPLE_REG_DELETE = r"""Windows Registry Editor Version 5.00
 
 [-HKEY_LOCAL_MACHINE\SOFTWARE\EvilKey]
@@ -438,10 +446,52 @@ def run_indicators() -> None:
     print("PASS  registry indicators fire on Temp/AppData, stay silent on clean paths")
 
 
+def run_asep_program() -> None:
+    """The artifact a registry finding contributes: the PROGRAM an ASEP value launches.
+
+    Registry findings reached the store, the HTML report and the correlation and contributed no
+    artifact at all, so the Run key that IS the persistence of an intrusion could not bridge to the
+    EVTX, THOR, YARA and CrowdStrike records naming the same binary. These are the two halves of
+    the fix: the path IS emitted where the key holds a program, and is NOT invented anywhere else.
+    """
+    from adapters import registry_regfile as a
+
+    # A Run key: the value name is arbitrary, the DATA is the command line.
+    basic = a.parse_regfile(SAMPLE_REG_BASIC)
+    assert {r["file.path"] for r in basic} == {
+        r"C:\Program Files\Windows Defender\MSASCuiL.exe",
+        r"C:\Program Files\Oracle\VirtualBox Guest Additions\VBoxTray.exe",
+    }, basic
+
+    # A service ImagePath exported by regedit as hex(2) (REG_EXPAND_SZ) — the decode feeds the
+    # artifact too, which is the half that would otherwise only ever match a `.exe`-shaped string.
+    svc = a.parse_regfile(SAMPLE_REG_SERVICE)
+    by_name = {r.get("registry.value"): r for r in svc}
+    assert by_name["ImagePath"]["file.path"] == r"C:\Windows\System32\test.exe", by_name
+    # `Start` is a DWORD under the same key and names no program.
+    assert "file.path" not in by_name["Start"], by_name["Start"]
+
+    # IFEO Debugger is a program by definition.
+    ifeo = a.parse_regfile(SAMPLE_REG_IFEO_IOC)
+    assert ifeo[0]["file.path"] == r"C:\Windows\System32\cmd.exe", ifeo
+
+    # A non-ASEP key with a program-looking value stays silent: the artifact is a decision made
+    # where the key is known to be persistence, not a rule about strings.
+    assert "file.path" not in a.parse_regfile(SAMPLE_REG_NON_ASEP)[0]
+
+    # Quoting, arguments and the NT native prefix, from a value an operator would actually see.
+    quoted = a.parse_regfile(SAMPLE_REG_NT_PREFIX)
+    assert quoted[0]["file.path"] == r"C:\Windows\Temp\svcupdate.exe", quoted
+
+    print("PASS  registry regfile: ASEP values yield file.path (Run, hex(2) ImagePath, IFEO) and "
+          "nothing else does")
+
+
 def run() -> int:
     run_synthetic()
     run_observed_at()
     run_indicators()
+    run_asep_program()
     return 0
 
 

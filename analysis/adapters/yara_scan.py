@@ -26,7 +26,7 @@ def _import_yara():
         raise RuntimeError(
             "yara-python not available: install it with `uv sync --extra yara` "
             f"({type(e).__name__}: {e})"
-        )
+        ) from e
     # `import yara` can resolve to the local `analysis/yara/` rules directory (a namespace package,
     # no `.compile`) instead of the yara-python library when the lib isn't installed. Guard on the
     # real API so this degrades to a clean skip rather than an AttributeError at compile time.

@@ -27,7 +27,6 @@ sys.path.insert(0, str(ROOT))
 
 from analytics import store  # noqa: E402
 from engine import run_demo, run_eval  # noqa: E402
-from tests._helpers import have  # noqa: E402
 
 EXPECTATIONS = ROOT / "demo" / "expectations.json"
 

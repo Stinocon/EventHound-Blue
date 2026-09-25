@@ -47,6 +47,10 @@ _GENERIC_FILES = {
     "svchost.exe", "cmd.exe", "powershell.exe", "explorer.exe", "lsass.exe", "services.exe",
     "rundll32.exe", "regsvr32.exe", "wmiprvse.exe", "conhost.exe", "taskhostw.exe", "dllhost.exe",
     "csrss.exe", "winlogon.exe", "spoolsv.exe", "msiexec.exe", "searchindexer.exe", "smss.exe",
+    # Runs at every interactive logon on every Windows host, and it is the value a tampered Winlogon
+    # `Userinit` keeps first: without it a registry finding would bridge two unrelated hosts through
+    # a file they both run.
+    "userinit.exe",
 }
 
 # Names that answer "which host" with "any of them".

@@ -478,6 +478,14 @@ def _make_record(
         rec["registry.value"] = value_name
     if value_data is not None:
         rec["registry.data"] = value_data
+    # The artifact the finding contributes. A Run value is a command line and the program it
+    # launches is the binary every other source names too — without this the persistence of an
+    # intrusion reached the store, the report and the correlation as a key nobody could join on.
+    # String types only: a DWORD or a binary blob is not a path.
+    if _norm_reg_type(reg_type) in ("REG_SZ", "REG_EXPAND_SZ"):
+        program = registry_asep.program_from_value(category, value_name, value_data)
+        if program:
+            rec["file.path"] = program
     if category is not None:
         rec["rule.description"] = category
     if ioc_desc is not None:

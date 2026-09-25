@@ -123,7 +123,7 @@ def decode_base64(s: str) -> DecodeResult | None:
             return data + "=" * (4 - r)
         return data
 
-    for variant, b64decode in [("std", base64.b64decode), ("urlsafe", base64.urlsafe_b64decode)]:
+    for _variant, b64decode in [("std", base64.b64decode), ("urlsafe", base64.urlsafe_b64decode)]:
         try:
             decoded = b64decode(_pad(s_stripped))
         except (Exception):  # noqa: BLE001

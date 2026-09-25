@@ -333,17 +333,17 @@ def write_osquery(out: Path) -> Path:
     """osquery result log (NDJSON) from ws-01: the process and its sockets."""
     path = out / "ws-01_osquery.jsonl"
 
-    def row(off: int, name: str, query: str, columns: dict) -> dict:
+    def row(off: int, name: str, columns: dict) -> dict:
         return {"name": name, "hostIdentifier": HOST_WS,
                 "unixTime": int((BASE + timedelta(seconds=off)).timestamp()),
                 "calendarTime": iso(off), "columns": columns, "action": "added"}
 
     rows = [
-        row(P2 + 5, "processes", "processes",
+        row(P2 + 5, "processes",
             {"pid": "3124", "name": "svcupdate.exe", "path": MALWARE_PATH,
              "cmdline": f'"{MALWARE_PATH}" -install', "sha256": MALWARE_HASH,
              "username": f"CORP\\{USER}"}),
-        row(P5 + 12, "process_open_sockets", "process_open_sockets",
+        row(P5 + 12, "process_open_sockets",
             {"pid": "3124", "name": "svcupdate.exe", "remote_address": C2_IP,
              "remote_port": "8443", "local_address": IP_WS, "local_port": "51234",
              "protocol": "6", "family": "2"}),

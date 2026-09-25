@@ -111,7 +111,7 @@ def test_risk_matrix_rejects_out_of_range(likelihood: int, impact: int, scale: i
     if not (1 <= likelihood <= scale and 1 <= impact <= scale):
         try:
             scoring.risk_matrix(likelihood, impact, scale)
-            assert False, f"expected ValueError for ({likelihood},{impact},{scale})"
+            raise AssertionError(f"expected ValueError for ({likelihood},{impact},{scale})")
         except ValueError:
             pass
 

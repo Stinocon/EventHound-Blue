@@ -299,7 +299,7 @@ def set_infrastructure_ips(case_id: str, ips, root=None) -> dict:
             ipaddress.ip_address(s)
         except ValueError:
             raise CaseError(f"not an IP address: {s!r} — declare addresses, not names or ranges",
-                            bad_input=True)
+                            bad_input=True) from None
         if s not in clean:
             clean.append(s)
     meta = load_meta(case_id, root)

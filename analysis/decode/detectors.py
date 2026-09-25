@@ -102,9 +102,9 @@ _COMMON_WORDS = frozenset(
         "had", "her", "was", "one", "our", "out", "has", "have", "been",
         "some", "them", "than", "that", "this", "very", "just", "also",
         "more", "over", "such", "will", "with", "would", "could", "should",
-        "from", "they", "been", "what", "when", "where", "which", "their",
+        "from", "they", "what", "when", "where", "which", "their",
         "there", "each", "made", "said", "does", "down", "take", "into",
-        "your", "than", "then", "many",
+        "your", "then", "many",
     }
 )
 
