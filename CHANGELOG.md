@@ -38,6 +38,11 @@ exported analysis bundle, so an archived case records which build produced it.
 - **`docs/tools.md`: installing the external tools by hand.** What each component does, what breaks
   without it, and the command the installer itself uses for it — for a machine with no outbound
   network, a package that is too old, or a version to pin. It also states what is not pinned.
+- **The doc-paths gate can see what it was blind to.** A code span containing a space was skipped as
+  "prose", and fenced blocks were not scanned, so the removed check-config-integrity.sh stayed an
+  instruction in three files for four months after it was deleted. The extractor now reads every
+  token of a code span and a fenced block, trims punctuation only off the end, and has a smoke test.
+  267 checked references became 294.
 - **The README stops holding what another document owns.** Its Cases and Bundles walkthroughs were a
   second copy of analysis/README's sections for them; they are now a pointer.
 - **Two defects the review of the artifact parse found.** A value whose last argument ends in a

@@ -217,6 +217,3 @@ for platforms the native scripts do not cover.
   weeks later gets whatever the upstream release is then.
 - The SigmaHQ rules are the one component with a recorded ref (`.sigmahq-ref`), because a checkout has
   a commit and a zip download does not.
-- `tools/check-config-integrity.sh` hashes the scripts and MCP servers that run at session, commit and
-  check time against a local, untracked baseline — a different question from tool provenance, and the
-  page next door.

@@ -28,9 +28,6 @@ changelog:
 - **Which build of Hayabusa / the EZ tools is this?** `.run/install-manifest.json` records
   the version and sha256 of everything `install` downloaded. Nothing pins those downloads — that is
   an open question, not a solved one — but what was taken is written down.
-- **The trust-surface guard complains on a fresh clone.** Expected: the baseline is local by design.
-  Generate it once (`tools/check-config-integrity.sh --update`, see `docs/development.md`). It is a
-  soft check and never blocks.
 - **The leak guard reports PARTIAL.** Also expected until `data/pseudonym-map.md` exists — with no
   map there are no identifiers to search for, and the guard says so rather than reporting a pass it
   did not earn.

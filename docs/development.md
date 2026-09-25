@@ -24,12 +24,10 @@ tools/check.sh --props         # + Hypothesis property tests for the scoring ora
 tools/check.sh --bench         # + the quick performance profile
 ```
 
-Two things to do once per clone:
+One thing to do once per clone:
 
 ```bash
 git config core.hooksPath tools/git-hooks     # pre-commit leak scan (§9)
-tools/check-config-integrity.sh --update      # snapshot the trust surface; the baseline is local,
-                                              # not versioned, so it is absent until you make it
 ```
 
 The individual suites, when you want one of them on its own:

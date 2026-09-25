@@ -79,11 +79,23 @@ _NOT_A_REFERENCE = ("*", "<", ">", "?", "\\", "$", "{", "...", "…")
 
 # Paths named only in the record of their own removal. A document that says "docs/crowdstrike/ was
 # removed" is correct precisely because the directory is gone, and a checker that objected to it
-# would be asking history to be rewritten to stay green.
+# would be asking history to be rewritten to stay green. Deliberately NOT extended for
+# `tools/check-config-integrity.sh`, which was removed on 2026-09-01 and stayed documented in three
+# files until 2026-09-25: adding it here would make every future live mention of it green forever,
+# which is the exact blindness this checker exists to remove. Its one remaining mention is prose.
 _REMOVED = {"docs/crowdstrike/", "docs/sonicwall/"}
 
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 _CODE = re.compile(r"`([^`\n]+)`")
+# Fenced blocks, for the reason the first-token rule exists: instructions live in them. `~~~` is a
+# valid fence in CommonMark and a document converted from another toolchain will use it.
+_FENCE = re.compile(r"(?:```|~~~)[^\n]*\n(.*?)(?:```|~~~)", re.DOTALL)
+
+# Punctuation that ends a sentence, a list item or a `path: message` line rather than the path.
+# Without this, a document quoting a tool's own output (`docs/roadmap.md: tools/x.sh`) yields the
+# candidate `docs/roadmap.md:`, which can never exist — a false positive that reds a hard gate in
+# every clone, and a gate everyone has learned to ignore is worse than no gate.
+_TRIM = ".,;:)]}\u2019\u201d"
 
 
 def _tracked_md() -> list[Path]:
@@ -109,18 +121,30 @@ def _strip_frontmatter(text: str) -> str:
 
 def _candidates(text: str) -> set[str]:
     found: set[str] = set()
+
+    def _add_tokens(chunk: str) -> None:
+        # EVERY token, not just the first. Fixing the first-token blindness by looking at the first
+        # one only moved the hole one word over: `python3 tools/check.sh`, `uv run tools/x`, `cd
+        # tools/`, `--rules tools/x.yar` all put the path second, and those are the shapes this
+        # repository's own documentation uses. A token is only considered when it starts at a
+        # directory this repository has, so prose and flags cost nothing.
+        for raw in chunk.split():
+            # `rstrip` and not `strip`: a LEADING dot is part of the path. Stripping both ends turned
+            # the relative `.tools/evtxecmd/` into `tools/evtxecmd/` and reported a correct reference
+            # as a broken one — the first thing this rule would have taught everyone to ignore.
+            ref = raw.rstrip(_TRIM)
+            if ref.startswith(_REPO_DIRS) and not any(c in ref for c in _NOT_A_REFERENCE):
+                found.add(ref)
+
     for m in _LINK.finditer(text):
         target = m.group(1).split("#", 1)[0].strip()
         if (target and not target.startswith(("http://", "https://", "mailto:", "#"))
                 and not any(c in target for c in _NOT_A_REFERENCE)):
             found.add(target)
     for m in _CODE.finditer(text):
-        span = m.group(1).strip()
-        # One token only, and it must start at a directory this repository actually has.
-        if (" " in span or not span.startswith(_REPO_DIRS)
-                or any(c in span for c in _NOT_A_REFERENCE)):
-            continue
-        found.add(span.rstrip(","))
+        _add_tokens(m.group(1))
+    for block in _FENCE.findall(text):
+        _add_tokens(block)
     return found
 
 
