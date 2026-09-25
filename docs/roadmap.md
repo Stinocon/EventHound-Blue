@@ -1,13 +1,14 @@
 ---
 title: EventHound roadmap — what is built, what is open
 updated: 2026-09-25
-version: 1.48.0
+version: 1.49.0
 linked_files:
   - README.md
   - analysis/DESIGN.md
   - method/conventions.md
   - docs/analysis/performance.md
 changelog:
+  - "1.49.0 (2026-09-25) — two items enter **Open**, both found by using the thing instead of reading its diff. The first is the gap the project had never named: **there is no collection playbook**, and collection is the half of the job that happens before EventHound is running at all — on a host it never touches, per §12. The reasoning, the six sections and the decision to derive the channel list from `windows_eventid.py` rather than from memory are written out in the entry, so the page is an afternoon of writing and not a design session. The second is two defects found by reading an output: **the Windows Event ID reaches no renderer at all** (the timeline shows `audit-log-cleared` and never `1102`, which is the token an analyst cites), and **the triage scenario calls itself 'live'** in four places, promising a live-response capability this product does not have and should not have — a snapshot records what was true at collection time, it does not observe a running host. Neither was caught by a diff review, because both are about what the output says rather than about what the code does."
   - "1.48.0 (2026-09-25) — a fresh-clone check found a document pointing at a script deleted four months earlier, and the fix was to the GATE, not to the document. `tools/check-config-integrity.sh` was removed with the RAG/LLM machinery on 2026-09-01 and stayed an instruction in three files — `docs/development.md` (listed under 'once per clone'), `docs/troubleshooting.md` (a whole entry on configuring it) and the tool table in `tools/README.md` — while `tools/check.sh`, a hard gate, ran clean over all of them. The cause was a rule inside `check-doc-paths.py`: a code span containing a space was skipped entirely, on the reasoning that a span with a space is prose. It is not — `tools/check-config-integrity.sh --update` is a path followed by its arguments, and a command is exactly what a reader follows. Fenced code blocks were not scanned at all, which hid the third mention. The extractor now reads EVERY token of a code span and of a fenced block (`~~~` as well as backtick fences), and trims punctuation off the END of a token but never off the front — a first draft stripped the leading dot too, turned the correct relative `.tools/evtxecmd/` into `tools/evtxecmd/` and reported a correct reference as broken, which is precisely how a gate gets muted. It does NOT extend `_REMOVED` for the deleted script: allowlisting a path makes every future live mention of it green forever, which is the blindness the checker exists to remove; its one remaining mention is prose, and prose is never parsed by design. 267 checked references became 294, and the extractor now has a smoke test in `tools/test-guards.sh` covering the shapes a rule once hid, so the next tightening cannot drop one quietly. Found by `tools/release-check.sh` — the gate was green in the working tree, where the script's absence had been normalised by four months of it."
   - "1.47.0 (2026-09-25) — the documentation stops holding the same thing twice, and the external tools get a page that assumes the installer might fail. **`docs/tools.md`** is the missing half of the install story: what each component does, what breaks without it, and how to install it without `setup.sh` — a machine with no outbound network, a distribution whose package is too old, a version that has to be pinned, or a component to repair on its own. Every command in it is the one the installer itself uses (the Eric Zimmerman `net9` zips, the Hayabusa release asset, the SigmaHQ sparse checkout, the vendor `uv` installer), so the by-hand path and the automatic one cannot describe different software. It also states what is NOT pinned: the manifest records the URL and sha256 of what was downloaded rather than asserting a version, the SigmaHQ rules are the one component with a recorded ref because a checkout has a commit and a zip does not, and nothing is redistributed — which is why the rule sets are a checkout and not a vendored copy. **The required-tools table roadmap 1.20.0 recorded as living in the README is there again, and this time on a page that can hold it**: the claim had quietly stopped being true, and the entry that made it is kept above as history. **The README goes back to being a front page.** Its Cases and Bundles walkthroughs were the same content as analysis/README's own sections for them — two copies of one thing, which is how they start disagreeing — so they are now two paragraphs and a pointer; the demo, MCP and getting-started sections are tightened to what a reader arriving from a search engine needs, and the CLI block, the screenshot pair and the licence split stay where they are. 15 lines shorter, and about thirty lines of duplicated instruction gone."
   - "1.46.0 (2026-09-25) — a source removed and a source proved, and the second is what made the first obvious. **Okta is gone.** It was the one adapter in the suite that could never be exercised on real data: it needed a System Log export, no substitute existed, and every alternative was a rewrite of its own fixture. An unvalidatable source is a claim of capability nobody can check, which is the same defect this project has spent months removing from fixtures and mappings — so the honest half of the rule that an adapter is written against a real sample is that a source nobody can sample does not ship. Adapter, CLI, tests, GUI content-sniffing and demo data all went; what went with them is stated below rather than glossed. **osquery is now validated against a real 5.23.1 result log** captured on macOS and pseudonymized (§9, `tests/fixtures/osquery_result_5.23.1.jsonl`), and the capture named five defects that no amount of reading the documentation would have found. `logged_in_users` spells its account `user`, not `username`, so every recorded interactive session lost its user — 5 of 5 rows. `process_open_sockets` gives the far end as `remote_address`/`remote_port` and the near end as `local_address`/`local_port`, and only the first had a mapping, so a live connection contributed half an address and no port. A socket that has no port says `\"0\"`, which was written straight through to `destination.port` — and `recipes.nonstandard_ports` is every port outside COMMON_PORTS, so 86 of 120 listening rows on the capture became traffic to a non-standard port. `path` in `listening_ports` and `process_open_sockets` is the path of a Unix-domain SOCKET, and it was being written into `process.path`: a socket file reported as the binary a process runs. And `name` in a result log is the SCHEDULED QUERY's name, which osquery never ties to the table it read — the category map had assumed they were the same, so on the real capture four of five queries missed and every socket and every interactive session came out labelled `process`. All five fixed, all five pinned by tests built on the real fixture; the test that used to certify the mapping fed it a `logged_in_users` row with `username` and `remote_address`, two columns that table does not have — a test built on a guessed shape certifies the guess. **A second demo scenario, and the one that answers what a state source is for.** `run_demo --scenario triage-windows` (`demo/triage_windows.py`) is a live triage of a single Windows endpoint: the Security log was cleared an hour into the intrusion (T1070.001), the Sysmon channel survives, a scanner found the payload on disk — and osquery's snapshot says the payload is STILL RUNNING, on a socket to the command-and-control address that is STILL ESTABLISHED. That is a different argument from the macOS/Linux one: on Windows it is not that EVTX is absent, it is that EVTX only answers what happened. The scenario's scope is declared rather than implied — it uses the cross-platform tables the macOS capture validated, and the Windows-specific `services`/`scheduled_tasks`/`autoruns` tables are deliberately absent because no Windows sample exists here to verify them against. `tests/test_triage.py` is the assertion that decides the source's place: it runs the triage, then rebuilds the identical evidence WITHOUT osquery and requires the address bridge and the artifact bridge to disappear (5 bridges to 2). A number in an expectations file says a bridge exists; rebuilding without the source says why. **What removing Okta cost, stated:** the demo's account bridge drops from five families to four (the UPN spelling came from Okta and from nowhere else), one corpus case's UPN-versus-UPN realm conflict becomes DOMAIN\\user versus UPN — the conflict is the same, the spellings are not — and the gui loses one content-sniffing branch and one test assertion. **The review round then found a defect in the category fix itself**, which is why the fix is worth more than the defect: the column signature used `state` to recognise a network table and `gid` to recognise an IAM one, and `SELECT *` on the real binary shows `processes` carries BOTH — so a full-column process row under a query name that is not its table name came out a network event, or an IAM one. The trimmed fixture rows the tests used had neither column, which is exactly how a real-shape test suite still misses a real-shape defect. The order is now network / file / authentication / process / iam, `state` is gone from the network markers (the socket tables are caught by `socket`, which no process table has), every marker was checked against the real column list of the table it serves, and four full-column rows taken from `SELECT *` pin it. Two smaller findings from the same round: the port guard compared to the string `\"0\"` and would have missed `0`, `\"00\"` and `0.0` (all coerced to the same store value), and the scenario's default artifact directory had moved out of the gitignored `out/` into `analysis/demo/<scenario>/`, where a run of the triage had already dropped generated hostnames waiting for a `git add -A`."
@@ -243,6 +244,61 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
    third-party apt source behind the user's back — PCAP analysis works on tshark alone.
 
 ## Open
+
+- **The collection playbook does not exist, and it is the first half of the job.** *(2026-09-25)*
+  EventHound analyses evidence that was collected elsewhere, on a machine that is not this one —
+  §12 in one sentence. The documentation covers the second half well (`docs/analysis/threat-hunting-evtx.md`
+  says, per Event ID, what to hunt for and which EventHound command surfaces it; `analysis/README.md`
+  is an index by source; `docs/tools.md` installs the analysis tools) and the first half nowhere: a
+  grep across the 43 tracked `.md` for `wevtutil`, `tshark -r`, `dumpcap`, `reg save`, `KAPE` and
+  winpmem returns three hits, one of which is a line added the same day. What is missing is the
+  page an analyst needs BEFORE they have any files: which artifacts to collect, with which tool, in
+  which order, and what each one becomes when it arrives here. Skeleton agreed on 2026-09-25 — a new
+  skeleton agreed on 2026-09-25 — a new page under docs/, collection.md by name:
+  1. **The model, first line**: nothing of EventHound runs on the examined host; you collect there,
+     carry it here, analyse here. The commands are proposals for an authorised environment, executed
+     by the operator (§12).
+  2. **Order of volatility**: state/memory → network → logs → disk, and the concrete reason a reboot
+     is fatal to one of them and not to the others: it closes the sockets and the process table, so
+     the state snapshot ceases to exist while the logs survive. Collect before containing.
+  3. **Per artifact** — `what | tool on the host | command | file produced | what EventHound does
+     with it`: EVTX channels (copy, or `hayabusa csv-timeline -J` for a pre-triage), endpoint state
+     (osquery, one shot, no agent), network (`dumpcap`/`tshark` with a duration and a size bound),
+     THOR (the `.txt` is the SOT, the `.csv` is a fallback), `$MFT` and hives (locked files: `reg save`
+     or a VSS copy), suspicious files (hash and keep a copy).
+  4. **Which Event IDs** — a POINTER to `docs/analysis/threat-hunting-evtx.md`, not a copy, plus the
+     one thing that page cannot say: which channels have to exist for those IDs to be there at all.
+     The channel list is DERIVED FROM THE SOURCE OF TRUTH, not from memory:
+     `adapters/windows_eventid.py` `_FAMILY` classifies exactly seven families — Security, System,
+     Sysmon, PowerShell (`Operational` and `Windows PowerShell`), TaskScheduler, TerminalServices/RDP,
+     WMI-Activity. A channel not collected is an Event ID the map will never see.
+  5. **A checklist before leaving the host**, so nobody has to go back: every channel present, the
+     host clock verified, the timezone recorded, the capture covering the window, files copied and
+     hashed. Clock and timezone are not pedantry here — the episodes, the timeline and the
+     kill-chain window all read the timestamps, and the store already had one defect that dropped a
+     `+02:00` offset and moved a source by its whole offset.
+  6. **What invalidates a collection**: a rotated log, a missing channel read as "no activity", a
+     capture too short to hold the beacon.
+  It also needs one line added to `docs/analysis/threat-hunting-evtx.md` pointing forward to it, so
+  the two halves are findable from each other.
+
+- **Two small defects found by reading an output rather than a diff.** *(2026-09-25)* Both are
+  consequences of the same habit — the scenario and the reports were asserted, not read.
+  **(a) The Windows Event ID never reaches an output.** `event_code` is a store column because the
+  adapters produced it and it used to be discarded, and `windows_eventid` derives `event.action` and
+  `event.category` from it — but no renderer prints it: `report_html.py`'s timeline, `report_markdown.py`'s
+  timeline, `report_json.py` and the GUI's timeline all show the translated `action` and never the
+  number. So the triage report says `audit-log-cleared` and `1102` appears zero times, and the Event ID
+  an analyst searches for and cites is the one thing the narrative view withholds. It stays reachable
+  through the Hayabusa toolbox's EID metrics and inside a bundle's raw records, which is why nobody
+  noticed. Fix: add the column to the two report renderers and the GUI timeline, and pin it.
+  **(b) The triage scenario calls itself "live".** `demo/triage_windows.py`'s docstring, the
+  `--scenario` help in `run_demo.py`, `docs/triage-windows.md` §1 and one README paragraph say
+  *live triage*, *captured live*, *what is happening now*. Under this project's own model nothing
+  runs on the examined host, and by the time the evidence is analysed on this one, nothing *is*
+  happening — a snapshot records what was true at collection time. The technical claim is unchanged
+  (a state source says something no log says); the framing promises a live-response capability the
+  product does not have and should not have. Fix: reword those four places.
 
 - **Publication blocker — personal mailbox in a commit message — CLOSED 2026-09-01.** The fix was
   the one this entry named as the avoidable alternative: the repository was re-created as
