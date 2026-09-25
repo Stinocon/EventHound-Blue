@@ -1,8 +1,9 @@
 <!--
 document: README — project map
-version: 1.16
+version: 1.17
 updated: 2026-09-25
 changelog:
+  - 1.17 (2026-09-25) — the README stops carrying what another document already owns. The Cases and Bundles walkthroughs move to analysis/README's own sections for them (the same content lived in two places, and two copies diverge); the demo, MCP and getting-started sections are tightened; and the external tools get their own page, docs/tools.md, instead of a sentence that assumed the installer always works.
   - 1.16 (2026-09-25) — the maturity section drops the "registry findings contribute no artifact entity" gap (closed: a registry ASEP value now yields the program it launches, so a Run key bridges to the sources naming the same binary), and the static-analysis step is part of the gate.
   - 1.15 (2026-09-11) — the inline screenshots are the light report (attack map + summary), not the dark GUI captures: the report's light theme reads far better on a documentation page.
   - 1.14 (2026-09-11) — the attack-map and dashboard screenshots are shown inline in "Using it", so the first thing a reader sees after the demo is what the product draws.
@@ -117,26 +118,20 @@ not something you should have to download to use the suite.
 
 EventHound ships **one** MCP server — `analysis/analysis_mcp_server.py` — that exposes the analysis
 pipeline to an external agentic harness (Pi, Claude Code, Cursor, …). The reasoning lives in the
-agent; EventHound stays a deterministic local tool:
+agent; EventHound stays a deterministic local tool. It offers three tools: **`analyze`** (the whole
+pipeline over artifact paths), **`analyze_case`** (against a persistent case) and **`eid_lookup`**
+(the Windows Event ID vocabulary).
 
 ```bash
 cd analysis && uv run python analysis_mcp_server.py    # stdio MCP server
 ```
 
-It exposes three tools:
-
-- **`analyze`** — run the full pipeline over artifact paths and return the correlated findings
-  (timeline, bridges, clusters, kill chain, host overview, technique catalogue).
-- **`analyze_case`** — run the pipeline against a persistent case (`analysis/cases/`).
-- **`eid_lookup`** — resolve a Windows Event ID against the channel-aware vocabulary.
-
-Responses are **pseudonymized** (§9): hosts, users, internal IPs and domains are replaced with
-stable pseudonyms via `data/pseudonym-map.md` before the payload reaches the agent. If the map is
-empty the response carries a `_privacy` warning — treat that as a stop signal, not a formality.
-
-The same three tools, plus the scoring, compliance and enrichment oracles, are also available as
-native MCP tools; the full `.mcp.json` block is in [`AGENTS.md`](AGENTS.md). Nothing is enabled by
-default — what your agent launches is your decision.
+Responses are **pseudonymized** (§9): hosts, users, internal IPs and domains are replaced with stable
+pseudonyms via `data/pseudonym-map.md` before the payload reaches the agent. If the map is empty the
+response carries a `_privacy` warning — treat that as a stop signal, not a formality. The same three
+tools plus the scoring, compliance and enrichment oracles can be enabled as native MCP tools; the
+`.mcp.json` block is in [`AGENTS.md`](AGENTS.md), and nothing is enabled by default — what your agent
+launches is your decision.
 
 ## Conventions
 
@@ -175,6 +170,12 @@ git clone https://github.com/Stinocon/EventHound-Blue.git && cd EventHound-Blue
 Then open **http://127.0.0.1:8700**. That is enough to analyse evidence: the engine, the CLI and every
 source view work from here.
 
+The installer downloads the forensic tools into the gitignored `analysis/.tools/`; nothing third-party
+is redistributed with this repository. If a download fails, if the machine has no outbound network, or
+if a version has to be pinned, [`docs/tools.md`](docs/tools.md) installs each component by hand and
+says what breaks without it. `./setup.sh doctor` is the first thing to run either way: it reports
+what is present, what is missing, and the command that fixes each one.
+
 
 ## Using it
 
@@ -182,41 +183,32 @@ Two interchangeable surfaces over the same engine — the GUI is a thin layer, n
 around the CLI — and an external agentic harness on top of what they produce (see the paragraph at the
 top of this file for what it can and cannot do).
 
-**No evidence to hand? Run the demo first.** It generates one coherent intrusion as eight source types — appliance logs, an EVTX detection timeline, a `.reg`, a THOR report, a CrowdStrike export, an osquery log, a YARA match and a capture — then ingests them through the ordinary adapters and produces the full analysis and report. Nothing in it is real: the estate is `corp.example` and documentation address space, so it is safe to show anyone.
+**No evidence to hand? Run the demo first.** It generates one coherent intrusion as eight source
+types — appliance logs, an EVTX detection timeline, a `.reg`, a THOR report, a CrowdStrike export, an
+osquery log, a YARA match and a capture — then ingests them through the ordinary adapters and
+produces the full analysis and report. Nothing in it is real: the estate is `corp.example` and
+documentation address space, so it is safe to show anyone. It is rebuilt from scratch on every run
+(`--reset`, the default), so the second run cannot fail on a batch the case already holds.
 
 ```bash
 cd analysis
-uv run python -m engine.run_demo                   # generate, ingest, correlate, report
-uv run python -m engine.run_demo --artifacts-only  # write the files, then load them by hand in the GUI
+uv run python -m engine.run_demo                                     # generate, ingest, correlate, report
+uv run python -m engine.run_demo --scenario triage-windows           # a Windows live triage (below)
+uv run python -m engine.run_demo --artifacts-only                    # write the files, load them in the GUI
 uv run python -m engine.run_demo --format markdown --level summary   # any run_report format/level
-uv run python -m engine.run_demo --no-reset        # accumulate into the existing demo case
 ```
 
-A second, richer sample — a credential-theft and lateral-movement intrusion with each phase mapped
-to its ATT&CK technique, Event ID and Sigma rule, plus screenshots of the analysis — is documented
-in [`docs/samples.md`](docs/samples.md) (generator `analysis/demo/generate_samples.py`).
+Two more datasets, both generated: a richer credential-theft and lateral-movement sample with each
+phase mapped to its ATT&CK technique, Event ID and Sigma rule ([`docs/samples.md`](docs/samples.md)),
+and a **Windows live triage** — one endpoint whose Security log was cleared before you arrived, so
+the only thing that still answers "what is happening now" is the state snapshot
+([`docs/triage-windows.md`](docs/triage-windows.md)).
 
-**A third scenario, and the one to read if you want the point of the suite in one page.** A Windows
-endpoint where the Security log was cleared before you arrived, so the history has a hole and the
-only thing that still answers "what is happening now" is the live state:
-
-```bash
-uv run python -m engine.run_demo --scenario triage-windows
-```
-
-The walkthrough — what to collect, the osquery commands, what the engine concludes and why, and what
-the scenario deliberately does not cover — is [`docs/triage-windows.md`](docs/triage-windows.md).
-
-The case is rebuilt from scratch on every run (`--reset`, the default): without that, a second run
-re-added the same eight sources to the same case and the store refused the batch, so the README's own
-first command failed the second time anyone tried it.
-
-The report lands in `analysis/reports/`, and the demo declares its own infrastructure address — in this
-estate the DC is also the DNS resolver, as on most Windows networks — so the incident cluster names
-the four hosts that took part rather than the whole network.
-
-Loading the evidence one source at a time is the better demonstration: the correlation grows as it
-arrives, and the GUI's Cases view can step through it without touching the terminal. What the demo does **not** exercise is stated on every run — EVTX arrives as the JSONL Hayabusa emits rather than through the binary (pass `--evtx-dir` with real `.evtx` to include it), and a missing tshark or `yara-python` is reported, never quietly worked around.
+The report lands in `analysis/reports/`. What the demo does **not** exercise is stated on every run —
+EVTX arrives as the JSONL Hayabusa emits rather than through the binary (pass `--evtx-dir` with real
+`.evtx` to include it), and a missing tshark or `yara-python` is reported, never quietly worked
+around. Loading the evidence one source at a time shows the point better than the all-at-once run:
+the correlation grows as it arrives, and the GUI's Cases view can step through it without the terminal.
 
 **GUI** (`http://127.0.0.1:8700`): upload EVTX / PCAP / registry / logs / THOR reports per view, analyze, then read the **Attack Map** — entities and how they are linked, in kill-chain order, with a phase-by-phase account underneath and a click through to the timeline — plus the dashboard for cross-source correlation, and export from **Report & Bundle**. **Load Demo Case** in the Cases view fills it with the simulated incident described above, with nothing to upload. The in-app **Help** view is the per-view walkthrough; the correlation model (normalization → confidence → clusters) is documented in [`docs/analysis/correlation.md`](docs/analysis/correlation.md), and the hunting playbook in [`docs/analysis/threat-hunting-evtx.md`](docs/analysis/threat-hunting-evtx.md).
 
@@ -242,27 +234,20 @@ uv run python -m engine.run_case new c1 --evtx sec.evtx               # persiste
 uv run python analysis_mcp_server.py                                  # MCP: analyze / analyze_case / eid_lookup
 ```
 
-**Cases — work that survives the session, and the default.** A bundle keeps the conclusions; a **case** keeps the data. It is a directory under `analysis/cases/` with a DuckDB of the events plus notes, so sources can be added over several days, an analysis can be reopened as it was, and two cases can be compared. Every analysis lands in one without being asked to — the correlation worth having happens *between* uploads, and if a case were opt-in the default would be the experience where
-nothing correlates. Each upload then re-analyses the whole case and reports **what changed**, and the gateway/proxy/resolver addresses can be declared so they stop bridging every host to every other:
+**Cases — work that survives the session, and the default.** Every analysis lands in a **case** (a
+directory under `analysis/cases/` holding a DuckDB of the events plus notes) without being asked to:
+the correlation worth having happens *between* uploads. Sources accumulate across sessions, each
+upload reports **what changed**, and gateway/proxy/resolver addresses can be declared so they stop
+bridging every host to every other. A case *is* client data: `analysis/cases/` is gitignored and
+refused by the leak guard. Full model and commands in
+[`analysis/README.md`](analysis/README.md#cases--an-analysis-that-survives-the-process).
 
-```bash
-uv run python -m engine.run_case new incident-042 --title "SMA compromise" --evtx sec.evtx
-uv run python -m engine.run_case add incident-042 --pcap perimeter.pcap
-uv run python -m engine.run_case note incident-042 "4624 type 3 from the web log IP"
-uv run python -m engine.run_case infra incident-042 10.10.10.1     # gateway/resolver: demoted, never a cluster link
-uv run python -m engine.run_case diff incident-042 baseline-clean
-```
-
-The GUI has a **Cases** view for the same thing, and can write an analysis straight into a case while it runs. A case *is* client data: `analysis/cases/` is gitignored and refused by the leak guard.
-
-**Bundles — reopening an analysis.** A bundle is one versioned JSON holding the analysis results, correlations and metadata, but **not** the evidence files. It exists so a case can be reopened without re-running Hayabusa/tshark/EvtxECmd over data you may no longer have:
-
-```bash
-uv run python -m engine.run_export --evtx sec.evtx --name case-01 --out case.json
-uv run python -m engine.run_report --from-bundle case.json --format markdown --out case.md
-```
-
-In the GUI, choose format **Bundle (re-importable)** to download one, and **Import bundle** in the same view to load it back — the import is client-side, the file never leaves the browser. A bundle carries the same real identifiers as any report: anonymize before sharing (§9), and note that `analysis/reports/` is gitignored for exactly that reason.
+**Bundles — reopening an analysis.** One versioned JSON holding the conclusions and **not** the
+evidence, so a case reopens without re-running Hayabusa/tshark/EvtxECmd over data you may no longer
+have. Choose format **Bundle (re-importable)** in the GUI, or `run_export` / `run_report
+--from-bundle` on the command line. It carries the same real identifiers as any report: anonymize
+before sharing (§9). Detail in
+[`analysis/README.md`](analysis/README.md#analysis-bundle-export--re-import).
 
 ### Configuration and API keys
 

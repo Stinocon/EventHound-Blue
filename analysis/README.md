@@ -326,7 +326,7 @@ the same incident". Entities acting as bridges (IP/domain/user/host/hash/file) e
 
 ## One road in — every source reaches the correlation
 
-Eleven adapters exist; for a long time three of them had no way to be used. `$MFT` had neither a CLI
+Ten adapters exist; for a long time three of them had no way to be used. `$MFT` had neither a CLI
 nor an endpoint (while the GUI showed an availability badge for it), registry hives had an endpoint
 that bypassed the pipeline and handed raw rows back, and an osquery result log uploaded to the GUI fell
 through to the generic log adapter — which reads top-level keys only, so the actor, the client
