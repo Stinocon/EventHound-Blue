@@ -11,6 +11,13 @@ exported analysis bundle, so an archived case records which build produced it.
 
 ## Unreleased
 
+- **The v2 layer lands on branch `v2-lean`** (roadmap Open item): nine sensor plugins
+  behind one contract (`core/sensors/`, each wrapping its tested v1 adapter), the knowledge
+  facade over the resolvers that already own the data (`core/knowledge.py`), and a
+  unified localhost API with a CLI wrapping the same endpoints (`api/` — `/analyze`,
+  `/correlate`, `/cases`, uploads deleted after analysis). A parity test generates the
+  demo scenario and requires every sensor to reproduce the v1 record sets exactly;
+  the v1 surfaces are untouched.
 - **A registry finding contributes an artifact.** An ASEP value is a command line, and the program
   it launches is now parsed into `file.path` (`registry_asep.program_from_value`), so a Run key or a
   service `ImagePath` bridges to the EVTX/YARA/CrowdStrike/osquery records naming the same binary.

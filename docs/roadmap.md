@@ -245,6 +245,20 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
 
 ## Open
 
+- **v2 layer: the convergence plan behind branch `v2-lean`.** *(2026-09-30)*
+  The layer is built and parity-tested: nine sensors behind one contract (`core/sensors/`,
+  each wrapping its v1 adapter — the parity test generates the demo scenario and requires the
+  record sets to be identical), the knowledge facade over the resolvers that already own the
+  data (`core/knowledge.py` — no migration, the vendored map and the YAML stay the single
+  truth), and the unified localhost API with a CLI that wraps the same endpoints (`api/` —
+  `/analyze`, `/correlate`, `/cases`, uploads deleted after analysis like the GUI). What the
+  layer deliberately does NOT do yet: it does not replace the v1 GUI, the v1 runners or the
+  v1 MCP server (all untouched and primary); it has no report rendering (the v1
+  `run_report` remains the road); and the CLI gains parity with `run_case` only when cases
+  grow notes/diff, which the API does not expose. The merge criterion is the demo bundle:
+  when `/correlate` over the demo artifacts is byte-equal to `run_analytics` output and the
+  GUI can serve from the plugins, the v1 CLI runners become the thin layer and v2 the road.
+
 - **The collection playbook does not exist, and it is the first half of the job.** *(2026-09-25)*
   EventHound analyses evidence that was collected elsewhere, on a machine that is not this one —
   §12 in one sentence. The documentation covers the second half well (`docs/analysis/threat-hunting-evtx.md`

@@ -11,12 +11,14 @@ stay the engine; this package adds:
 | sensor     | accepts                                        | delegates to (v1)              |
 |------------|------------------------------------------------|--------------------------------|
 | `evtx`     | Hayabusa `.jsonl` timeline, or raw `.evtx` (runs Hayabusa) | `adapters.evtx_hayabusa`, `engine.hayabusa_runner` |
-| `pcap`     | `.pcap`/`.pcapng` (Zeek primary, tshark fallback) | `adapters.pcap_zeek`, `adapters.pcap_tshark` |
+| `pcap`     | `.pcap`/`.pcapng` — tshark + Zeek concatenated, the `build_records` road (`backend=auto`); `zeek`/`tshark` alone, or `both` (merged per flow, the `run_pcap` view) | `adapters.pcap_tshark`, `adapters.pcap_zeek`, `engine.run_pcap` |
 | `logs`     | syslog / access / JSONL / regex                | `adapters.logfile`             |
 | `mft`      | MFTECmd JSON output directory                  | `adapters.mft_mftecmd`         |
 | `registry` | `.reg` export, or RECmd CSV directory          | `adapters.registry_regfile`, `adapters.registry_recmd` |
 | `thor`     | THOR (Nextron) report (+ optional md5s file)    | `adapters.thor_scan`           |
 | `osquery`  | osquery result log (NDJSON)                    | `adapters.osquery_result`      |
+| `crowdstrike` | detection clipboard or LogScale JSON (explicit routing: a `.txt` that is not a THOR report) | `adapters.crowdstrike` |
+| `yara`     | scan target + rules file (`ingest(target, rules)`) | `adapters.yara_scan` (needs `yara-python`) |
 
 - **`knowledge.py`** — one door to the knowledge base: ATT&CK lookups
   (`technique(id)`, `attack_version()`) over the vendored `attack_map.json`,
@@ -33,4 +35,7 @@ cd analysis && uv run pytest ../core/tests/ -v
 
 Counts are regression contracts verified against the shipped samples; tests
 skip (never pass silently) when an external binary or the PyYAML dependency
-of `tools/compliance` is missing.
+of `tools/compliance` is missing. `test_parity.py` goes further: it
+generates the demo scenario and proves that every v2 sensor reproduces the
+v1 adapter output record for record (order-insensitive — Zeek emits
+near-simultaneous flows in a run-dependent order).

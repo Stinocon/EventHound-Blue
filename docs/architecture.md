@@ -146,6 +146,9 @@ analysis — never part of the running product, and never given a real identifie
 | Enrichment | `tools/enrichment/` | the only egress, public indicators only |
 | Cases and bundles | `analysis/analytics/case_store.py`, `analysis/engine/bundle.py` | correlation across uploads; portable analysis without evidence |
 | Attack map | `analysis/engine/attack_map.py` | entity graph drawn in kill-chain lanes, evidence behind every edge |
+| v2 sensor layer | `core/sensors/` (branch `v2-lean`) | one plugin per source over the same adapters — `ingest()` → common-schema records; parity-tested against the demo scenario |
+| v2 knowledge facade | `core/knowledge.py` | ATT&CK lookups and GDPR/NIS2/DORA obligations through one door; the resolvers stay the single truth |
+| v2 unified API | `api/server.py` + `api/cli.py` | localhost FastAPI over the sensors (`/analyze`, `/correlate`, `/cases`); the CLI wraps the same endpoints |
 
 Packaging: a single `eventhound` Docker image bakes the engine, the GUI and every wrapped tool; the
 root `docker-compose.yml` runs it alone (see the root `README.md`). The image builds from the

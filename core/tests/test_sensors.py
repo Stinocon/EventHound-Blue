@@ -161,6 +161,7 @@ def test_mft_requires_directory():
 
 def test_registry_covers_all_sensors():
     assert sorted(REGISTRY) == [
+        "crowdstrike",
         "evtx",
         "logs",
         "mft",
@@ -168,6 +169,7 @@ def test_registry_covers_all_sensors():
         "pcap",
         "registry",
         "thor",
+        "yara",
     ]
 
 

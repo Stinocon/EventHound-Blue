@@ -67,6 +67,18 @@ uv run python -m engine.run_eval                                  # correlation 
 uv run python -m engine.run_decode --help                         # base64/hex/URL/ROT/XOR decoding
 ```
 
+The **v2 layer** (branch `v2-lean`, `core/` + `api/`) wraps those same
+adapters behind one sensor contract and one API — use it when you need the
+unified surface, the v1 runners when you need a report or a case from the CLI:
+
+```bash
+cd analysis/gui && uv run python ../../api/cli.py health
+cd analysis/gui && uv run python ../../api/cli.py analyze a.evtx --out records.json
+cd analysis/gui && uv run python ../../api/cli.py correlate a.evtx b.log --out findings.json
+cd analysis/gui && uv run python ../../api/cli.py case-new c1 && uv run python ../../api/cli.py case-add c1 a.evtx
+cd analysis/gui && uv run python ../../api/cli.py case-analyze c1 --out case-findings.json
+```
+
 ### The analysis MCP server (the agent interface)
 
 There is no bundled LLM. The suite exposes itself to an agentic harness (Pi, Claude Code, …) through

@@ -148,6 +148,8 @@ Development of EventHound is done with AI assistants under those same rules; the
 | `CHANGELOG.md` | what changed between versions, one screen; the reasoning stays in `docs/roadmap.md` | impersonal |
 | `data/` | real client data (anonymized) + `pseudonym-map.md` | **private** |
 | `analysis/` | **EventHound**: EVTX/PCAP/log ingestion, ECS normalization, detection (Hayabusa/Sigma), long-tail (DuckDB), correlation, YARA, baseline/diffing, case management, threat-intel enrichment, compliance, GUI (`127.0.0.1:8700`), HTML reports | versioned (real data excluded) |
+| `core/` | the v2 plugin layer: one sensor contract per source over the v1 adapters, plus the knowledge facade (ATT&CK map, GDPR/NIS2/DORA resolver) — see `core/README.md` | versioned |
+| `api/` | the v2 unified API: localhost FastAPI over the sensors (`/analyze`, `/correlate`, `/cases`) with a CLI that wraps the same endpoints — see `api/README.md` | versioned |
 | `tools/` | deterministic tools: scoring (CVSS/EPSS), compliance (GDPR/NIS2/DORA), enrichment (Shodan/VT), workspace hygiene (`check.sh`, leak detection, injection scanning) | versioned |
 
 ## Privacy and anonymization
@@ -269,6 +271,34 @@ never displayed again after saving — only their last four characters.
 
 Storing a key does **not** enable network traffic: outbound lookups remain opt-in
 (`allow_egress`), and only public indicators are ever sent (§9/§15).
+
+## The v2 layer (unified API and sensor plugins)
+
+Branch `v2-lean` adds a thin layer over the engine — a uniform sensor
+contract and one API surface — without touching the v1 adapters, analytics or
+surfaces:
+
+- **`core/sensors`** — every source behind one contract
+  (`ingest(artifact) -> common-schema records`): evtx (Hayabusa), pcap
+  (tshark+Zeek, the runner road), logs, mft, registry, thor, osquery,
+  crowdstrike, yara. Each plugin wraps its tested v1 adapter — a parity
+test generates the demo scenario and proves the records are identical,
+  source by source.
+- **`core/knowledge.py`** — one door to the knowledge base: ATT&CK lookups
+  and GDPR/NIS2/DORA obligations over the existing golden-tested resolvers
+  (no data migration: the sources stay the single truth).
+- **`api/`** — localhost FastAPI (`/analyze`, `/correlate`, `/cases`,
+  `/health`) with a CLI that wraps the same endpoints, so there is exactly
+  one analysis code path. Same privacy invariants as the GUI: 127.0.0.1
+  only, uploads deleted right after analysis.
+
+```bash
+cd analysis/gui && uv run python ../../api/server.py                                  # API on 127.0.0.1:8700
+cd analysis/gui && uv run python ../../api/cli.py correlate a.evtx b.log --out f.json
+```
+
+The v1 GUI, CLI and MCP server are unchanged and remain the primary
+surfaces; the layer is the unified road they can converge on.
 
 ## Docker — the alternative runtime
 
