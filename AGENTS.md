@@ -69,14 +69,17 @@ uv run python -m engine.run_decode --help                         # base64/hex/U
 
 The **v2 layer** (branch `v2-lean`, `core/` + `api/`) wraps those same
 adapters behind one sensor contract and one API — use it when you need the
-unified surface, the v1 runners when you need a report or a case from the CLI:
+unified surface; for reports stay on the v1 `run_report` (v2 does not generate
+reports), and for notes/diff on a case stay on the v1 `run_case`:
 
 ```bash
+# run from analysis/gui; artifact paths are your own
 cd analysis/gui && uv run python ../../api/cli.py health
 cd analysis/gui && uv run python ../../api/cli.py analyze a.evtx --out records.json
 cd analysis/gui && uv run python ../../api/cli.py correlate a.evtx b.log --out findings.json
-cd analysis/gui && uv run python ../../api/cli.py case-new c1 && uv run python ../../api/cli.py case-add c1 a.evtx
-cd analysis/gui && uv run python ../../api/cli.py case-analyze c1 --out case-findings.json
+cd analysis/gui && uv run python ../../api/cli.py case-new c1
+cd analysis/gui && uv run python ../../api/cli.py case-add c1 a.evtx
+cd analysis/gui && uv run python ../../api/cli.py case-analyze c1 --out case-findings.json   # needs an existing case (case-new above)
 ```
 
 ### The analysis MCP server (the agent interface)
