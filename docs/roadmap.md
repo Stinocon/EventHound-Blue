@@ -247,10 +247,10 @@ finding was the value. Whatever comes off the **Open** list next, budget for the
 
 - **v2 layer: the convergence plan behind branch `v2-lean`.** *(2026-09-30)*
   The layer is built and parity-tested: nine sensors behind one contract (`core/sensors/`,
-  each wrapping its v1 adapter — the parity test generates the demo scenario and requires the
+  each wrapping its v1 adapter; the parity test generates the demo scenario and requires the
   record sets to be identical), the knowledge facade over the resolvers that already own the
-  data (`core/knowledge.py` — no migration, the vendored map and the YAML stay the single
-  truth), and the unified localhost API with a CLI that wraps the same endpoints (`api/` —
+  data (`core/knowledge.py`, no migration: the vendored map and the YAML stay the single
+  truth), and the unified localhost API with a CLI that wraps the same endpoints (`api/`,
   `/analyze`, `/correlate`, `/cases`, uploads deleted after analysis like the GUI). What the
   layer deliberately does NOT do yet: it does not replace the v1 GUI, the v1 runners or the
   v1 MCP server (all untouched and primary); it has no report rendering (the v1

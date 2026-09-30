@@ -274,23 +274,23 @@ Storing a key does **not** enable network traffic: outbound lookups remain opt-i
 
 ## The v2 layer (unified API and sensor plugins)
 
-Branch `v2-lean` adds a thin layer over the engine — a uniform sensor
-contract and one API surface — without touching the v1 adapters, analytics or
+Branch `v2-lean` adds a thin layer over the engine (a uniform sensor
+contract and one API surface) without touching the v1 adapters, analytics or
 surfaces:
 
-- **`core/sensors`** — every source behind one contract
+- **`core/sensors`** puts every source behind one contract
   (`ingest(artifact) -> common-schema records`): evtx (Hayabusa), pcap
   (tshark+Zeek, the runner road), logs, mft, registry, thor, osquery,
-  crowdstrike, yara. Each plugin wraps its tested v1 adapter — a parity
+  crowdstrike, yara. Each plugin wraps its tested v1 adapter; a parity
 test generates the demo scenario and proves the records are identical,
   source by source.
-- **`core/knowledge.py`** — one door to the knowledge base: ATT&CK lookups
+- **`core/knowledge.py`** is one door to the knowledge base: ATT&CK lookups
   and GDPR/NIS2/DORA obligations over the existing golden-tested resolvers
   (no data migration: the sources stay the single truth).
-- **`api/`** — localhost FastAPI (`/analyze`, `/correlate`, `/cases`,
-  `/health`) with a CLI that wraps the same endpoints, so there is exactly
-  one analysis code path. Same privacy invariants as the GUI: 127.0.0.1
-  only, uploads deleted right after analysis.
+- **`api/`** serves a localhost FastAPI (`/analyze`, `/correlate`,
+  `/cases`, `/health`) with a CLI that wraps the same endpoints, so there is
+  exactly one analysis code path. Same privacy invariants as the GUI:
+  127.0.0.1 only, uploads deleted right after analysis.
 
 ```bash
 cd analysis/gui && uv run python ../../api/server.py                                  # API on 127.0.0.1:8700
